@@ -660,7 +660,7 @@ del {
 }
 
 .auth-card {
-  margin-left: clamp(0px, 20vw, 360px);
+  margin-inline: auto;
 }
 
 .form-card.wide {
