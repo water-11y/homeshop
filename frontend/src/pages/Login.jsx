@@ -31,7 +31,8 @@ export default function Login() {
 
   return (
     <main className="page form-page">
-      <section className="form-card">
+      <section className="form-card auth-card">
+        <p className="eyebrow dark">HomeShop</p>
         <h1>로그인</h1>
         <form onSubmit={handleSubmit}>
           <label>

@@ -68,7 +68,8 @@ export default function Register() {
 
   return (
     <main className="page form-page">
-      <section className="form-card">
+      <section className="form-card auth-card">
+        <p className="eyebrow dark">HomeShop</p>
         <h1>회원가입</h1>
         <form onSubmit={handleSubmit}>
           <label>

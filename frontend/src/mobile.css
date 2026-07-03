@@ -223,6 +223,8 @@
   .form-page {
     min-height: 100vh;
     padding: 24px 14px;
+    background-position: center top;
+    background-attachment: scroll;
   }
 
   .section-head {
@@ -425,6 +427,10 @@
 
   .form-card {
     padding: 22px;
+  }
+
+  .auth-card {
+    margin-left: 0;
   }
 
   .upload-field input[type="file"] {
