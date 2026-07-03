@@ -493,8 +493,48 @@
   .dashboard-grid,
   .question-admin-row,
   .coupon-admin-row,
-  .benefit-grid {
+  .benefit-grid,
+  .profile-hero,
+  .admin-user-card,
+  .admin-user-main {
     grid-template-columns: 1fr;
+  }
+
+  .profile-enhanced {
+    gap: 18px;
+  }
+
+  .profile-hero {
+    justify-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .profile-photo-card {
+    width: min(190px, 68vw);
+  }
+
+  .profile-title h1 {
+    font-size: 36px;
+  }
+
+  .admin-user-card {
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .admin-user-main {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .admin-user-photo {
+    width: 120px;
+  }
+
+  .admin-user-files {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .row-actions {

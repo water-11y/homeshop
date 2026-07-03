@@ -1,11 +1,13 @@
 import { LogOut, Mail, Shield, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { assetUrl } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function MyPage() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const joinedAt = user?.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
+  const facePhotoUrl = assetUrl(user?.face_photo_path);
 
   const handleLogout = async () => {
     await logout();
@@ -14,11 +16,22 @@ export default function MyPage() {
 
   return (
     <main className="page">
-      <section className="profile">
-        <div>
-          <p className="eyebrow">My Page</p>
-          <h1>{user.name}</h1>
+      <section className="profile profile-enhanced">
+        <div className="profile-hero">
+          <div className="profile-photo-card">
+            {facePhotoUrl ? (
+              <img src={facePhotoUrl} alt={`${user.name} 얼굴 사진`} />
+            ) : (
+              <User size={54} aria-hidden="true" />
+            )}
+          </div>
+          <div className="profile-title">
+            <p className="eyebrow">My Page</p>
+            <h1>{user.name}</h1>
+            <p>{user.approval_status === 'approved' ? '승인 완료 회원' : '승인 대기 회원'}</p>
+          </div>
         </div>
+
         <dl className="profile-list">
           <div>
             <dt><User size={18} aria-hidden="true" /> 아이디</dt>
@@ -37,6 +50,7 @@ export default function MyPage() {
             <dd>{joinedAt}</dd>
           </div>
         </dl>
+
         <div className="actions">
           <Link className="button primary" to="/orders">주문내역 보기</Link>
           <Link className="button subtle" to="/products">쇼핑 계속하기</Link>

@@ -54,14 +54,41 @@ export const getDashboard = async (req, res, next) => {
 export const listUsers = async (req, res, next) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, username, name, email, role, approval_status, created_at
+      `SELECT id, username, name, email, role, approval_status, face_photo_path, created_at
        FROM users
        ORDER BY
          CASE approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
          created_at DESC`
     );
 
-    res.json({ users });
+    const userIds = users.map((user) => user.id);
+    let attachments = [];
+
+    if (userIds.length > 0) {
+      const [rows] = await pool.query(
+        `SELECT id, user_id, file_name, file_path, file_type, file_size, created_at
+         FROM user_attachments
+         WHERE user_id IN (?)
+         ORDER BY created_at DESC`,
+        [userIds]
+      );
+      attachments = rows;
+    }
+
+    const attachmentsByUser = attachments.reduce((acc, file) => {
+      if (!acc[file.user_id]) {
+        acc[file.user_id] = [];
+      }
+      acc[file.user_id].push(file);
+      return acc;
+    }, {});
+
+    res.json({
+      users: users.map((user) => ({
+        ...user,
+        attachments: attachmentsByUser[user.id] || []
+      }))
+    });
   } catch (err) {
     next(err);
   }
