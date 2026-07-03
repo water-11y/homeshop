@@ -663,6 +663,47 @@ label {
   min-height: 18px;
 }
 
+.upload-field {
+  gap: 9px;
+}
+
+.upload-field span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.upload-field input[type="file"] {
+  min-height: auto;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.upload-field small,
+.file-note,
+.file-list {
+  color: #647286;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.file-note {
+  margin: -6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.file-list {
+  display: grid;
+  gap: 6px;
+  margin: -6px 0 0;
+  padding-left: 20px;
+}
+
+.file-list li {
+  overflow-wrap: anywhere;
+}
+
 .error {
   margin: 0;
   color: #b73535;

@@ -10,8 +10,22 @@ export const ensureDatabase = async () => {
       email VARCHAR(100) NOT NULL UNIQUE,
       role VARCHAR(20) DEFAULT 'user',
       approval_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      face_photo_path VARCHAR(255) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_attachments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      file_name VARCHAR(255) NOT NULL,
+      file_path VARCHAR(255) NOT NULL,
+      file_type VARCHAR(100) NULL,
+      file_size INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_user_attachments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
@@ -90,6 +104,14 @@ export const ensureDatabase = async () => {
 
   try {
     await pool.query("ALTER TABLE users ADD COLUMN approval_status VARCHAR(20) NOT NULL DEFAULT 'pending'");
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') {
+      throw err;
+    }
+  }
+
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN face_photo_path VARCHAR(255) NULL");
   } catch (err) {
     if (err.code !== 'ER_DUP_FIELDNAME') {
       throw err;

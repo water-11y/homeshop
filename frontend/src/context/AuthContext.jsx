@@ -39,7 +39,15 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
-  const register = async ({ username, password, name, email }) => {
+  const register = async (payload) => {
+    if (payload instanceof FormData) {
+      return apiRequest('/auth/register', {
+        method: 'POST',
+        body: payload
+      });
+    }
+
+    const { username, password, name, email } = payload;
     return apiRequest('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, password, name, email })

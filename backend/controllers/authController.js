@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import fs from 'fs/promises';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/db.js';
 
@@ -21,19 +22,45 @@ const publicUser = (user) => ({
   email: user.email,
   role: user.role,
   approval_status: user.approval_status,
+  face_photo_path: user.face_photo_path,
   created_at: user.created_at
 });
 
+const uploadedFiles = (files = {}) => {
+  return Object.values(files).flat();
+};
+
+const removeUploadedFiles = async (files = {}) => {
+  await Promise.allSettled(
+    uploadedFiles(files).map((file) => fs.unlink(file.path))
+  );
+};
+
+const uploadPathFor = (file, folder) => {
+  return `/uploads/users/${folder}/${file.filename}`;
+};
+
 export const register = async (req, res, next) => {
+  let connection;
+
   try {
     const { username, password, name, email } = req.body;
+    const facePhoto = req.files?.facePhoto?.[0] || null;
+    const attachments = req.files?.attachments || [];
 
     if (!username || !password || !name || !email) {
+      await removeUploadedFiles(req.files);
       return res.status(400).json({ message: 'Please enter all required fields.' });
     }
 
     if (password.length < 8) {
+      await removeUploadedFiles(req.files);
       return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+    }
+
+    if (!facePhoto) {
+      await removeUploadedFiles(req.files);
+      return res.status(400).json({ message: '얼굴 사진을 1장 첨부해주세요.' });
     }
 
     const [existingUsers] = await pool.query(
@@ -42,6 +69,7 @@ export const register = async (req, res, next) => {
     );
 
     if (existingUsers.length > 0) {
+      await removeUploadedFiles(req.files);
       return res.status(409).json({ message: 'Username or email is already in use.' });
     }
 
@@ -50,16 +78,29 @@ export const register = async (req, res, next) => {
     const role = isFirstUser ? 'admin' : 'user';
     const approvalStatus = isFirstUser ? 'approved' : 'pending';
     const hashedPassword = await bcrypt.hash(password, 12);
+    const facePhotoPath = uploadPathFor(facePhoto, 'faces');
 
-    const [result] = await pool.query(
-      'INSERT INTO users (username, password, name, email, role, approval_status) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, hashedPassword, name, email, role, approvalStatus]
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [result] = await connection.query(
+      'INSERT INTO users (username, password, name, email, role, approval_status, face_photo_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [username, hashedPassword, name, email, role, approvalStatus, facePhotoPath]
     );
 
-    const [createdRows] = await pool.query(
-      'SELECT id, username, name, email, role, approval_status, created_at FROM users WHERE id = ?',
+    for (const file of attachments) {
+      await connection.query(
+        'INSERT INTO user_attachments (user_id, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?)',
+        [result.insertId, file.originalname, uploadPathFor(file, 'attachments'), file.mimetype, file.size]
+      );
+    }
+
+    const [createdRows] = await connection.query(
+      'SELECT id, username, name, email, role, approval_status, face_photo_path, created_at FROM users WHERE id = ?',
       [result.insertId]
     );
+
+    await connection.commit();
 
     res.status(201).json({
       message: isFirstUser
@@ -68,7 +109,16 @@ export const register = async (req, res, next) => {
       user: publicUser(createdRows[0])
     });
   } catch (err) {
+    if (connection) {
+      await connection.rollback();
+    }
+
+    await removeUploadedFiles(req.files);
     next(err);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 };
 
@@ -81,7 +131,7 @@ export const login = async (req, res, next) => {
     }
 
     const [users] = await pool.query(
-      'SELECT id, username, password, name, email, role, approval_status, created_at FROM users WHERE username = ? LIMIT 1',
+      'SELECT id, username, password, name, email, role, approval_status, face_photo_path, created_at FROM users WHERE username = ? LIMIT 1',
       [username]
     );
 
@@ -122,7 +172,7 @@ export const logout = (req, res) => {
 export const me = async (req, res, next) => {
   try {
     const [users] = await pool.query(
-      'SELECT id, username, name, email, role, approval_status, created_at FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, username, name, email, role, approval_status, face_photo_path, created_at FROM users WHERE id = ? LIMIT 1',
       [req.user.id]
     );
 

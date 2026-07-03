@@ -407,6 +407,17 @@
     padding: 22px;
   }
 
+  .upload-field input[type="file"] {
+    min-height: 44px;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .file-list {
+    max-height: 112px;
+    overflow: auto;
+  }
+
   .form-card h1,
   .form-card h2 {
     margin-bottom: 18px;
