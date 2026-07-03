@@ -110,21 +110,41 @@
     order: 2;
   }
 
-  .nav a[href="/orders"] {
+  .nav a[href="/wishlist"] {
     order: 3;
   }
 
-  .nav .user-link {
+  .nav a[href="/orders"] {
     order: 4;
+  }
+
+  .nav .user-link {
+    order: 5;
   }
 
   .nav .admin-tab {
     order: 5;
   }
 
-  .nav a[href="/wishlist"],
+  .nav.nav-admin a[href="/orders"] {
+    order: 3;
+  }
+
+  .nav.nav-admin .user-link {
+    order: 4;
+  }
+
+  .nav.nav-admin a[href="/wishlist"],
   .nav > .icon-button {
     display: none;
+  }
+
+  .nav .desktop-label {
+    display: none;
+  }
+
+  .nav .mobile-label {
+    display: inline;
   }
 
   .nav .user-link span,

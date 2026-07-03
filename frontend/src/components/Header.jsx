@@ -29,7 +29,7 @@ export default function Header() {
         HomeShop
       </Link>
 
-      <nav className="nav" aria-label="Main navigation">
+      <nav className={`nav ${user?.role === 'admin' ? 'nav-admin' : 'nav-user'}`} aria-label="Main navigation">
         <NavLink to="/products" className="icon-link">
           <Store size={18} aria-hidden="true" />
           <span>Shop</span>
@@ -57,7 +57,8 @@ export default function Header() {
 
         <NavLink to="/mypage" className="user-link">
           <User size={18} aria-hidden="true" />
-          <span>{user.name}</span>
+          <span className="desktop-label">{user.name}</span>
+          <span className="mobile-label">My</span>
         </NavLink>
         <button className="icon-button" onClick={handleLogout} type="button" title="Logout">
           <LogOut size={18} aria-hidden="true" />
