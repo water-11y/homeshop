@@ -8,11 +8,13 @@ import AdminOrders from './pages/AdminOrders.jsx';
 import AdminQuestions from './pages/AdminQuestions.jsx';
 import AdminReviews from './pages/AdminReviews.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
+import AddressBook from './pages/AddressBook.jsx';
 import Cart from './pages/Cart.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Login from './pages/Login.jsx';
 import MyOrders from './pages/MyOrders.jsx';
 import MyPage from './pages/MyPage.jsx';
+import Notifications from './pages/Notifications.jsx';
 import OrderDetail from './pages/OrderDetail.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import Products from './pages/Products.jsx';
@@ -117,6 +119,22 @@ export default function App() {
           element={
             <PrivateRoute>
               <Checkout />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/addresses"
+          element={
+            <PrivateRoute>
+              <AddressBook />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <PrivateRoute>
+              <Notifications />
             </PrivateRoute>
           }
         />

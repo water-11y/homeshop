@@ -1,12 +1,35 @@
-import { Search } from 'lucide-react';
+import { Clock, Search, Star } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiRequest } from '../api/client.js';
 import { useCart } from '../context/CartContext.jsx';
 import { formatPrice } from '../utils/format.js';
 
+function ProductCard({ product, onAdd }) {
+  return (
+    <article className="product-card">
+      <Link to={`/products/${product.id}`} className="product-image">
+        <img src={product.image_url} alt={product.name} />
+      </Link>
+      <div className="product-body">
+        <span className="category">{product.category}</span>
+        <h3><Link to={`/products/${product.id}`}>{product.name}</Link></h3>
+        <p>{product.brand} · ★ {Number(product.rating).toFixed(1)}</p>
+        <div className="price-row">
+          <strong>{formatPrice(product.price)}</strong>
+          {product.original_price && <del>{formatPrice(product.original_price)}</del>}
+        </div>
+        <button className="button compact" type="button" onClick={() => onAdd(product)}>
+          장바구니 담기
+        </button>
+      </div>
+    </article>
+  );
+}
+
 export default function Products() {
   const [products, setProducts] = useState([]);
+  const [recentProducts, setRecentProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [filters, setFilters] = useState({ q: '', category: '', sort: 'featured' });
   const [loading, setLoading] = useState(true);
@@ -22,6 +45,7 @@ export default function Products() {
 
   useEffect(() => {
     apiRequest('/products/categories').then((data) => setCategories(data.categories));
+    apiRequest('/shop/recently-viewed').then((data) => setRecentProducts(data.products || [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -43,6 +67,24 @@ export default function Products() {
           <h1>전체 상품</h1>
         </div>
       </section>
+
+      {recentProducts.length > 0 && (
+        <section className="recent-products-panel">
+          <div className="mini-section-head">
+            <span><Clock size={16} aria-hidden="true" /> 최근 본 상품</span>
+            <small>방금 둘러본 상품을 빠르게 다시 볼 수 있어요.</small>
+          </div>
+          <div className="recent-products-strip">
+            {recentProducts.slice(0, 6).map((product) => (
+              <Link className="recent-product-chip" to={`/products/${product.id}`} key={product.id}>
+                <img src={product.image_url} alt={product.name} />
+                <span>{product.name}</span>
+                <small><Star size={12} aria-hidden="true" /> {Number(product.rating).toFixed(1)}</small>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="toolbar">
         <label className="search-box">
@@ -71,23 +113,7 @@ export default function Products() {
       ) : (
         <div className="product-grid">
           {products.map((product) => (
-            <article className="product-card" key={product.id}>
-              <Link to={`/products/${product.id}`} className="product-image">
-                <img src={product.image_url} alt={product.name} />
-              </Link>
-              <div className="product-body">
-                <span className="category">{product.category}</span>
-                <h3><Link to={`/products/${product.id}`}>{product.name}</Link></h3>
-                <p>{product.brand} · ★ {product.rating}</p>
-                <div className="price-row">
-                  <strong>{formatPrice(product.price)}</strong>
-                  {product.original_price && <del>{formatPrice(product.original_price)}</del>}
-                </div>
-                <button className="button compact" type="button" onClick={() => addItem(product)}>
-                  장바구니 담기
-                </button>
-              </div>
-            </article>
+            <ProductCard product={product} onAdd={addItem} key={product.id} />
           ))}
         </div>
       )}

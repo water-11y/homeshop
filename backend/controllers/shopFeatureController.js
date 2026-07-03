@@ -1,5 +1,11 @@
 import { pool } from '../config/db.js';
 
+const normalizeOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
 export const listWishlist = async (req, res, next) => {
   try {
     const [items] = await pool.query(
@@ -241,6 +247,270 @@ export const updateCoupon = async (req, res, next) => {
     );
 
     res.json({ message: 'Coupon updated.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createNotification = async (
+  db,
+  userId,
+  type,
+  title,
+  message,
+  linkUrl = null
+) => {
+  await db.query(
+    `INSERT INTO notifications (user_id, type, title, message, link_url)
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, type, title, message, linkUrl]
+  );
+};
+
+export const listAddresses = async (req, res, next) => {
+  try {
+    const [addresses] = await pool.query(
+      `SELECT id, label, recipient, phone, address, latitude, longitude, is_default, created_at
+       FROM shipping_addresses
+       WHERE user_id = ?
+       ORDER BY is_default DESC, updated_at DESC`,
+      [req.user.id]
+    );
+
+    res.json({ addresses });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createAddress = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const {
+      label = '기본 배송지',
+      recipient,
+      phone,
+      address,
+      latitude = null,
+      longitude = null,
+      is_default = false
+    } = req.body;
+
+    if (!recipient || !phone || !address) {
+      return res.status(400).json({ message: '배송지 정보를 입력해주세요.' });
+    }
+
+    await connection.beginTransaction();
+
+    const [countRows] = await connection.query(
+      'SELECT COUNT(*) AS count FROM shipping_addresses WHERE user_id = ?',
+      [req.user.id]
+    );
+    const shouldDefault = is_default || Number(countRows[0].count) === 0;
+
+    if (shouldDefault) {
+      await connection.query('UPDATE shipping_addresses SET is_default = 0 WHERE user_id = ?', [
+        req.user.id
+      ]);
+    }
+
+    const [result] = await connection.query(
+      `INSERT INTO shipping_addresses
+        (user_id, label, recipient, phone, address, latitude, longitude, is_default)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.id,
+        String(label || '배송지').trim(),
+        recipient,
+        phone,
+        address,
+        normalizeOptionalNumber(latitude),
+        normalizeOptionalNumber(longitude),
+        shouldDefault ? 1 : 0
+      ]
+    );
+
+    await connection.commit();
+    res.status(201).json({ message: '배송지가 저장되었습니다.', id: result.insertId });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+};
+
+export const updateAddress = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const {
+      label = '배송지',
+      recipient,
+      phone,
+      address,
+      latitude = null,
+      longitude = null,
+      is_default = false
+    } = req.body;
+
+    if (!recipient || !phone || !address) {
+      return res.status(400).json({ message: '배송지 정보를 입력해주세요.' });
+    }
+
+    await connection.beginTransaction();
+
+    if (is_default) {
+      await connection.query('UPDATE shipping_addresses SET is_default = 0 WHERE user_id = ?', [
+        req.user.id
+      ]);
+    }
+
+    const [result] = await connection.query(
+      `UPDATE shipping_addresses
+       SET label = ?, recipient = ?, phone = ?, address = ?, latitude = ?, longitude = ?,
+           is_default = IF(?, 1, is_default)
+       WHERE id = ? AND user_id = ?`,
+      [
+        String(label || '배송지').trim(),
+        recipient,
+        phone,
+        address,
+        normalizeOptionalNumber(latitude),
+        normalizeOptionalNumber(longitude),
+        is_default ? 1 : 0,
+        req.params.addressId,
+        req.user.id
+      ]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error('배송지를 찾을 수 없습니다.');
+    }
+
+    await connection.commit();
+    res.json({ message: '배송지가 수정되었습니다.' });
+  } catch (err) {
+    await connection.rollback();
+    res.status(400).json({ message: err.message || '배송지 수정에 실패했습니다.' });
+  } finally {
+    connection.release();
+  }
+};
+
+export const deleteAddress = async (req, res, next) => {
+  try {
+    const [result] = await pool.query(
+      'DELETE FROM shipping_addresses WHERE id = ? AND user_id = ?',
+      [req.params.addressId, req.user.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '배송지를 찾을 수 없습니다.' });
+    }
+
+    res.json({ message: '배송지가 삭제되었습니다.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const setDefaultAddress = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    await connection.query('UPDATE shipping_addresses SET is_default = 0 WHERE user_id = ?', [
+      req.user.id
+    ]);
+    const [result] = await connection.query(
+      'UPDATE shipping_addresses SET is_default = 1 WHERE id = ? AND user_id = ?',
+      [req.params.addressId, req.user.id]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error('배송지를 찾을 수 없습니다.');
+    }
+
+    await connection.commit();
+    res.json({ message: '기본 배송지로 설정되었습니다.' });
+  } catch (err) {
+    await connection.rollback();
+    res.status(400).json({ message: err.message || '기본 배송지 설정에 실패했습니다.' });
+  } finally {
+    connection.release();
+  }
+};
+
+export const markRecentlyViewed = async (req, res, next) => {
+  try {
+    await pool.query(
+      `INSERT INTO recently_viewed_products (user_id, product_id)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE viewed_at = CURRENT_TIMESTAMP`,
+      [req.user.id, req.params.productId]
+    );
+
+    res.status(201).json({ message: '최근 본 상품에 저장되었습니다.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listRecentlyViewed = async (req, res, next) => {
+  try {
+    const [products] = await pool.query(
+      `SELECT p.id, p.name, p.price, p.original_price, p.category, p.brand, p.image_url,
+              p.rating, p.review_count, r.viewed_at
+       FROM recently_viewed_products r
+       JOIN products p ON p.id = r.product_id
+       WHERE r.user_id = ? AND p.is_active = 1
+       ORDER BY r.viewed_at DESC
+       LIMIT 12`,
+      [req.user.id]
+    );
+
+    res.json({ products });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listNotifications = async (req, res, next) => {
+  try {
+    const [notifications] = await pool.query(
+      `SELECT id, type, title, message, link_url, is_read, created_at
+       FROM notifications
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.user.id]
+    );
+    const unread_count = notifications.filter((item) => !item.is_read).length;
+
+    res.json({ notifications, unread_count });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markNotificationRead = async (req, res, next) => {
+  try {
+    await pool.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', [
+      req.params.notificationId,
+      req.user.id
+    ]);
+    res.json({ message: '알림을 읽음 처리했습니다.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markAllNotificationsRead = async (req, res, next) => {
+  try {
+    await pool.query('UPDATE notifications SET is_read = 1 WHERE user_id = ?', [req.user.id]);
+    res.json({ message: '모든 알림을 읽음 처리했습니다.' });
   } catch (err) {
     next(err);
   }

@@ -1,4 +1,4 @@
-import { LogOut, Mail, Shield, User } from 'lucide-react';
+import { Bell, LogOut, Mail, MapPin, PackageCheck, Shield, Store, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { assetUrl } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -51,9 +51,30 @@ export default function MyPage() {
           </div>
         </dl>
 
+        <div className="quick-actions-grid">
+          <Link className="quick-action-card" to="/orders">
+            <PackageCheck size={22} aria-hidden="true" />
+            <strong>주문내역</strong>
+            <span>결제/배송 현황 확인</span>
+          </Link>
+          <Link className="quick-action-card" to="/addresses">
+            <MapPin size={22} aria-hidden="true" />
+            <strong>배송지 관리</strong>
+            <span>현재 위치와 주소 저장</span>
+          </Link>
+          <Link className="quick-action-card" to="/notifications">
+            <Bell size={22} aria-hidden="true" />
+            <strong>알림함</strong>
+            <span>주문/배송 알림 확인</span>
+          </Link>
+          <Link className="quick-action-card" to="/products">
+            <Store size={22} aria-hidden="true" />
+            <strong>쇼핑 계속하기</strong>
+            <span>상품 목록으로 이동</span>
+          </Link>
+        </div>
+
         <div className="actions">
-          <Link className="button primary" to="/orders">주문내역 보기</Link>
-          <Link className="button subtle" to="/products">쇼핑 계속하기</Link>
           <button className="button danger" type="button" onClick={handleLogout}>
             <LogOut size={18} aria-hidden="true" />
             로그아웃

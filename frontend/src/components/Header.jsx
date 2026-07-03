@@ -1,4 +1,5 @@
 import {
+  Bell,
   Heart,
   LogOut,
   Menu,
@@ -8,7 +9,9 @@ import {
   Store,
   User,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { apiRequest } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 
@@ -16,6 +19,13 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    apiRequest('/shop/notifications')
+      .then((data) => setUnreadCount(Number(data.unread_count || 0)))
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -46,6 +56,11 @@ export default function Header() {
         <NavLink to="/orders" className="icon-link">
           <ReceiptText size={18} aria-hidden="true" />
           <span>Orders</span>
+        </NavLink>
+        <NavLink to="/notifications" className="icon-link notification-link">
+          <Bell size={18} aria-hidden="true" />
+          <span>Alerts</span>
+          {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
         </NavLink>
 
         {user?.role === 'admin' && (

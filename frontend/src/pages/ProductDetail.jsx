@@ -47,6 +47,12 @@ export default function ProductDetail() {
     Promise.all([loadProduct(), loadReviews(), loadQuestions()]).finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (id) {
+      apiRequest(`/shop/recently-viewed/${id}`, { method: 'POST' }).catch(() => {});
+    }
+  }, [id]);
+
   const selectedOption = useMemo(
     () => product?.options?.find((option) => String(option.id) === selectedOptionId) || null,
     [product, selectedOptionId]

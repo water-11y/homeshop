@@ -135,6 +135,7 @@
   }
 
   .nav.nav-admin a[href="/wishlist"],
+  .nav .notification-link,
   .nav > .icon-button {
     display: none;
   }

@@ -77,6 +77,8 @@ export const ensureDatabase = async () => {
       shipping_name VARCHAR(50) NOT NULL,
       shipping_phone VARCHAR(30) NOT NULL,
       shipping_address VARCHAR(255) NOT NULL,
+      shipping_lat DECIMAL(10, 7) NULL,
+      shipping_lng DECIMAL(10, 7) NULL,
       memo VARCHAR(255) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -191,6 +193,48 @@ export const ensureDatabase = async () => {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS shipping_addresses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      label VARCHAR(80) NOT NULL DEFAULT '기본 배송지',
+      recipient VARCHAR(50) NOT NULL,
+      phone VARCHAR(30) NOT NULL,
+      address VARCHAR(255) NOT NULL,
+      latitude DECIMAL(10, 7) NULL,
+      longitude DECIMAL(10, 7) NULL,
+      is_default TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_shipping_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recently_viewed_products (
+      user_id INT NOT NULL,
+      product_id INT NOT NULL,
+      viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, product_id),
+      CONSTRAINT fk_recently_viewed_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_recently_viewed_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      type VARCHAR(40) NOT NULL DEFAULT 'info',
+      title VARCHAR(120) NOT NULL,
+      message VARCHAR(255) NOT NULL,
+      link_url VARCHAR(255) NULL,
+      is_read TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS product_questions (
       id INT AUTO_INCREMENT PRIMARY KEY,
       product_id INT NOT NULL,
@@ -279,6 +323,8 @@ export const ensureDatabase = async () => {
   await alterIfMissing("ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(40) NULL");
   await alterIfMissing("ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0");
   await alterIfMissing("ALTER TABLE orders ADD COLUMN payment_method VARCHAR(40) NOT NULL DEFAULT 'mock_card'");
+  await alterIfMissing("ALTER TABLE orders ADD COLUMN shipping_lat DECIMAL(10, 7) NULL");
+  await alterIfMissing("ALTER TABLE orders ADD COLUMN shipping_lng DECIMAL(10, 7) NULL");
   await alterIfMissing("ALTER TABLE order_items ADD COLUMN option_id INT NULL");
   await alterIfMissing("ALTER TABLE order_items ADD COLUMN option_summary VARCHAR(255) NULL");
 };

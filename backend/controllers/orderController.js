@@ -1,12 +1,26 @@
 import { pool } from '../config/db.js';
-import { getCouponDiscount } from './shopFeatureController.js';
+import { createNotification, getCouponDiscount } from './shopFeatureController.js';
 
 const publicOrderSql = `
   SELECT id, order_number, user_id, total_amount, discount_amount, coupon_code,
          payment_method, status, shipping_name, shipping_phone, shipping_address,
-         memo, created_at, updated_at
+         shipping_lat, shipping_lng, memo, created_at, updated_at
   FROM orders
 `;
+
+const statusLabels = {
+  paid: '결제 완료',
+  preparing: '상품 준비 중',
+  shipping: '배송 중',
+  delivered: '배송 완료',
+  cancelled: '주문 취소'
+};
+
+const normalizeOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
 
 const makeOrderNumber = () => {
   const now = new Date();
@@ -23,9 +37,13 @@ export const createOrder = async (req, res, next) => {
       shipping_name,
       shipping_phone,
       shipping_address,
+      shipping_lat = null,
+      shipping_lng = null,
       memo = '',
       coupon_code = '',
-      payment_method = 'mock_card'
+      payment_method = 'mock_card',
+      save_address = false,
+      address_label = '기본 배송지'
     } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -138,11 +156,13 @@ export const createOrder = async (req, res, next) => {
 
     const totalAmount = Math.max(0, subtotal - discountAmount);
     const orderNumber = makeOrderNumber();
+    const latitude = normalizeOptionalNumber(shipping_lat);
+    const longitude = normalizeOptionalNumber(shipping_lng);
     const [orderResult] = await connection.query(
       `INSERT INTO orders
         (order_number, user_id, total_amount, discount_amount, coupon_code, payment_method,
-         status, shipping_name, shipping_phone, shipping_address, memo)
-       VALUES (?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?)`,
+         status, shipping_name, shipping_phone, shipping_address, shipping_lat, shipping_lng, memo)
+       VALUES (?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, ?)`,
       [
         orderNumber,
         req.user.id,
@@ -153,6 +173,8 @@ export const createOrder = async (req, res, next) => {
         shipping_name,
         shipping_phone,
         shipping_address,
+        latitude,
+        longitude,
         memo
       ]
     );
@@ -181,6 +203,39 @@ export const createOrder = async (req, res, next) => {
         [coupon.id, req.user.id, orderResult.insertId, discountAmount]
       );
     }
+
+    if (save_address) {
+      const [countRows] = await connection.query(
+        'SELECT COUNT(*) AS count FROM shipping_addresses WHERE user_id = ?',
+        [req.user.id]
+      );
+      const shouldDefault = Number(countRows[0].count) === 0;
+
+      await connection.query(
+        `INSERT INTO shipping_addresses
+          (user_id, label, recipient, phone, address, latitude, longitude, is_default)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.id,
+          String(address_label || '배송지').trim(),
+          shipping_name,
+          shipping_phone,
+          shipping_address,
+          latitude,
+          longitude,
+          shouldDefault ? 1 : 0
+        ]
+      );
+    }
+
+    await createNotification(
+      connection,
+      req.user.id,
+      'order',
+      '주문이 완료되었습니다.',
+      `${orderNumber} 주문이 접수되었습니다.`,
+      `/orders/${orderResult.insertId}`
+    );
 
     await connection.commit();
 
@@ -252,7 +307,7 @@ export const cancelOrder = async (req, res, next) => {
     if (req.user.role !== 'admin') params.push(req.user.id);
 
     const [orders] = await connection.query(
-      `SELECT id, status FROM orders WHERE id = ?${ownerSql} LIMIT 1 FOR UPDATE`,
+      `SELECT id, user_id, order_number, status FROM orders WHERE id = ?${ownerSql} LIMIT 1 FOR UPDATE`,
       params
     );
 
@@ -284,6 +339,14 @@ export const cancelOrder = async (req, res, next) => {
     }
 
     await connection.query("UPDATE orders SET status = 'cancelled' WHERE id = ?", [req.params.id]);
+    await createNotification(
+      connection,
+      orders[0].user_id,
+      'order',
+      '주문이 취소되었습니다.',
+      `${orders[0].order_number} 주문이 취소되었습니다.`,
+      `/orders/${orders[0].id}`
+    );
     await connection.commit();
 
     res.json({ message: 'Order cancelled.' });
@@ -313,7 +376,24 @@ export const updateOrderStatus = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid order status.' });
     }
 
+    const [orders] = await pool.query(
+      'SELECT id, user_id, order_number FROM orders WHERE id = ? LIMIT 1',
+      [req.params.id]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'Order was not found.' });
+    }
+
     await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
+    await createNotification(
+      pool,
+      orders[0].user_id,
+      'delivery',
+      '배송 상태가 변경되었습니다.',
+      `${orders[0].order_number} 주문 상태가 ${statusLabels[status] || status}(으)로 변경되었습니다.`,
+      `/orders/${orders[0].id}`
+    );
     res.json({ message: 'Order status updated.' });
   } catch (err) {
     next(err);
