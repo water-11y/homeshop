@@ -54,7 +54,8 @@
 
   .nav a,
   .icon-button,
-  .nav-menu summary {
+  .nav-menu summary,
+  .admin-menu-button {
     display: grid;
     grid-template-rows: 22px 18px;
     place-items: center;
@@ -101,6 +102,27 @@
     position: relative;
   }
 
+  .nav a[href="/products"] {
+    order: 1;
+  }
+
+  .nav a[href="/cart"] {
+    order: 2;
+  }
+
+  .nav a[href="/orders"] {
+    order: 3;
+  }
+
+  .nav .user-link {
+    order: 4;
+  }
+
+  .nav a[href="/wishlist"],
+  .nav > .icon-button {
+    display: none;
+  }
+
   .nav .user-link span,
   .icon-button span {
     max-width: 100%;
@@ -110,11 +132,32 @@
   }
 
   .nav-menu {
-    order: 6;
+    order: 5;
   }
 
   .nav-menu summary {
     list-style: none;
+  }
+
+  .admin-menu-button {
+    width: 100%;
+    background: transparent;
+    font: inherit;
+  }
+
+  .nav-menu.open .admin-menu-button,
+  .admin-menu-button:hover {
+    background: #eef7f5;
+    color: #176b5f;
+  }
+
+  .nav-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 41;
+    display: block;
+    border: 0;
+    background: rgba(23, 33, 47, 0.22);
   }
 
   .nav-menu-panel {
@@ -123,6 +166,7 @@
     right: 12px;
     top: auto;
     bottom: calc(76px + env(safe-area-inset-bottom));
+    z-index: 42;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -137,6 +181,10 @@
     min-height: 48px;
     padding: 0 8px;
     font-size: 12px;
+  }
+
+  .nav-menu-panel[hidden] {
+    display: none;
   }
 
   .icon-button {
@@ -451,7 +499,8 @@
 
   .nav a,
   .icon-button,
-  .nav-menu summary {
+  .nav-menu summary,
+  .admin-menu-button {
     font-size: 10px;
   }
 }

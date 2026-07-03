@@ -60,7 +60,8 @@ textarea {
 
 .nav a,
 .icon-button,
-.nav-menu summary {
+.nav-menu summary,
+.admin-menu-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -81,13 +82,19 @@ textarea {
 .nav a:hover,
 .icon-button:hover,
 .nav-menu[open] summary,
-.nav-menu summary:hover {
+.nav-menu summary:hover,
+.nav-menu.open .admin-menu-button,
+.admin-menu-button:hover {
   border-color: #c9d5e4;
   background: #eef3f8;
 }
 
 .nav-menu {
   position: relative;
+}
+
+.admin-menu-button {
+  font: inherit;
 }
 
 .nav-menu summary {
@@ -109,6 +116,14 @@ textarea {
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 18px 34px rgba(27, 45, 66, 0.14);
+}
+
+.nav-menu-panel[hidden] {
+  display: none;
+}
+
+.nav-menu-backdrop {
+  display: none;
 }
 
 .nav-menu-panel .menu-link {

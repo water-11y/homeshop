@@ -13,6 +13,7 @@ import {
   User,
   UsersRound
 } from 'lucide-react';
+import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
@@ -31,10 +32,15 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();
+  const [adminOpen, setAdminOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate('/');
+  };
+
+  const closeAdminMenu = () => {
+    setAdminOpen(false);
   };
 
   return (
@@ -64,23 +70,30 @@ export default function Header() {
         </NavLink>
 
         {user?.role === 'admin' && (
-          <details className="nav-menu">
-            <summary>
+          <div className={`nav-menu ${adminOpen ? 'open' : ''}`}>
+            <button
+              className="admin-menu-button"
+              type="button"
+              onClick={() => setAdminOpen((current) => !current)}
+              aria-expanded={adminOpen}
+              aria-controls="admin-menu-panel"
+            >
               <Menu size={18} aria-hidden="true" />
-              Admin
-            </summary>
-            <div className="nav-menu-panel">
+              <span>Admin</span>
+            </button>
+            {adminOpen && <button className="nav-menu-backdrop" type="button" aria-label="Close admin menu" onClick={closeAdminMenu} />}
+            <div className="nav-menu-panel" id="admin-menu-panel" hidden={!adminOpen}>
               {adminLinks.map((link) => {
                 const Icon = link.icon;
                 return (
-                  <NavLink key={link.to} to={link.to} className="menu-link">
+                  <NavLink key={link.to} to={link.to} className="menu-link" onClick={closeAdminMenu}>
                     <Icon size={17} aria-hidden="true" />
                     {link.label}
                   </NavLink>
                 );
               })}
             </div>
-          </details>
+          </div>
         )}
 
         <NavLink to="/mypage" className="user-link">
