@@ -118,6 +118,10 @@
     order: 4;
   }
 
+  .nav .admin-tab {
+    order: 5;
+  }
+
   .nav a[href="/wishlist"],
   .nav > .icon-button {
     display: none;

@@ -1,4 +1,4 @@
-import { AlertTriangle, MessageSquareText, Package, ReceiptText, UsersRound } from 'lucide-react';
+import { AlertTriangle, MessageSquareText, PackagePlus, ReceiptText, Star, Ticket, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiRequest } from '../api/client.js';
@@ -17,6 +17,13 @@ export default function AdminDashboard() {
 
   const cards = [
     {
+      label: 'Dashboard',
+      value: 'Admin',
+      detail: '관리자 메뉴',
+      icon: AlertTriangle,
+      to: '/admin/dashboard'
+    },
+    {
       label: 'Sales',
       value: formatPrice(dashboard.orders.total_sales),
       detail: `${dashboard.orders.total_orders || 0} orders`,
@@ -34,8 +41,15 @@ export default function AdminDashboard() {
       label: 'Products',
       value: dashboard.products.total_products || 0,
       detail: `${dashboard.products.low_stock_products || 0} low stock`,
-      icon: Package,
+      icon: PackagePlus,
       to: '/admin/products'
+    },
+    {
+      label: 'Reviews',
+      value: 'Review',
+      detail: '리뷰 노출 관리',
+      icon: Star,
+      to: '/admin/reviews'
     },
     {
       label: 'Questions',
@@ -43,6 +57,13 @@ export default function AdminDashboard() {
       detail: `${dashboard.questions.unanswered_questions || 0} unanswered`,
       icon: MessageSquareText,
       to: '/admin/questions'
+    },
+    {
+      label: 'Coupons',
+      value: 'Coupon',
+      detail: '쿠폰 생성 및 상태 관리',
+      icon: Ticket,
+      to: '/admin/coupons'
     }
   ];
 
@@ -51,7 +72,7 @@ export default function AdminDashboard() {
       <section className="section-head">
         <div>
           <p className="eyebrow dark">Admin</p>
-          <h1>Dashboard</h1>
+          <h1>관리자 메뉴</h1>
         </div>
       </section>
 
