@@ -8,6 +8,7 @@ import {
   ReceiptText,
   ShoppingBag,
   ShoppingCart,
+  Store,
   Ticket,
   User,
   UsersRound
@@ -44,19 +45,22 @@ export default function Header() {
       </Link>
 
       <nav className="nav" aria-label="Main navigation">
-        <NavLink to="/products">Shop</NavLink>
+        <NavLink to="/products" className="icon-link">
+          <Store size={18} aria-hidden="true" />
+          <span>Shop</span>
+        </NavLink>
         <NavLink to="/cart" className="icon-link">
           <ShoppingCart size={18} aria-hidden="true" />
-          Cart
+          <span>Cart</span>
           {totalItems > 0 && <span className="badge">{totalItems}</span>}
         </NavLink>
         <NavLink to="/wishlist" className="icon-link">
           <Heart size={18} aria-hidden="true" />
-          Wishlist
+          <span>Wishlist</span>
         </NavLink>
         <NavLink to="/orders" className="icon-link">
           <ReceiptText size={18} aria-hidden="true" />
-          Orders
+          <span>Orders</span>
         </NavLink>
 
         {user?.role === 'admin' && (
@@ -81,11 +85,11 @@ export default function Header() {
 
         <NavLink to="/mypage" className="user-link">
           <User size={18} aria-hidden="true" />
-          {user.name}
+          <span>{user.name}</span>
         </NavLink>
         <button className="icon-button" onClick={handleLogout} type="button" title="Logout">
           <LogOut size={18} aria-hidden="true" />
-          Logout
+          <span>Logout</span>
         </button>
       </nav>
     </header>
