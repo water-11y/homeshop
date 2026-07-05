@@ -1,9 +1,36 @@
-import { Camera, FileUp, ShieldCheck, UserPlus } from 'lucide-react';
+import { Camera, Check, FileUp, ShieldCheck, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const attachmentAccept = 'image/*,.pdf,.doc,.docx,.hwp,.hwpx,.txt';
+
+const agreementItems = [
+  {
+    key: 'terms',
+    required: true,
+    title: '이용약관 동의',
+    description: '서비스 이용, 주문 처리, 회원 관리, 부정 이용 방지에 필요한 기본 약관입니다.'
+  },
+  {
+    key: 'privacy',
+    required: true,
+    title: '개인정보 수집 및 이용 동의',
+    description: '아이디, 이름, 이메일, 얼굴 사진, 첨부파일 등 회원 확인과 서비스 제공에 필요한 정보를 수집합니다.'
+  },
+  {
+    key: 'emailMarketing',
+    required: false,
+    title: '이메일 혜택/이벤트 수신 동의',
+    description: '할인 쿠폰, 이벤트, 쇼핑 혜택 안내를 이메일로 받을 수 있습니다.'
+  },
+  {
+    key: 'snsMarketing',
+    required: false,
+    title: 'SMS/SNS 혜택/이벤트 수신 동의',
+    description: '주요 혜택과 알림성 이벤트 안내를 문자 또는 SNS 채널로 받을 수 있습니다.'
+  }
+];
 
 export default function Register() {
   const { register } = useAuth();
@@ -30,19 +57,25 @@ export default function Register() {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
   };
 
-  const handleAgreementChange = (event) => {
-    const { name, checked } = event.target;
-    setAgreements((current) => ({ ...current, [name]: checked }));
+  const setAgreement = (key, checked) => {
+    setAgreements((current) => ({ ...current, [key]: checked }));
   };
 
-  const handleAllAgreements = (event) => {
-    const checked = event.target.checked;
+  const setAllAgreements = (checked) => {
     setAgreements({
       terms: checked,
       privacy: checked,
       emailMarketing: checked,
       snsMarketing: checked
     });
+  };
+
+  const setRequiredAgreements = () => {
+    setAgreements((current) => ({
+      ...current,
+      terms: true,
+      privacy: true
+    }));
   };
 
   const handleFacePhotoChange = (event) => {
@@ -97,6 +130,7 @@ export default function Register() {
   };
 
   const allChecked = Object.values(agreements).every(Boolean);
+  const requiredChecked = agreements.terms && agreements.privacy;
 
   return (
     <main className="page form-page">
@@ -156,28 +190,31 @@ export default function Register() {
               <ShieldCheck size={18} aria-hidden="true" />
               <strong>약관 동의</strong>
             </div>
-            <label className="checkbox-row terms-all">
-              <input type="checkbox" checked={allChecked} onChange={handleAllAgreements} />
-              전체 동의
-            </label>
-            <label className="checkbox-row">
-              <input name="terms" type="checkbox" checked={agreements.terms} onChange={handleAgreementChange} />
-              <span>[필수] 이용약관 동의</span>
-            </label>
-            <p className="terms-copy">서비스 이용, 주문 처리, 회원 관리, 부정 이용 방지에 필요한 기본 약관입니다.</p>
-            <label className="checkbox-row">
-              <input name="privacy" type="checkbox" checked={agreements.privacy} onChange={handleAgreementChange} />
-              <span>[필수] 개인정보 수집 및 이용 동의</span>
-            </label>
-            <p className="terms-copy">아이디, 이름, 이메일, 얼굴 사진, 첨부파일 등 회원 확인과 서비스 제공에 필요한 정보를 수집합니다.</p>
-            <label className="checkbox-row">
-              <input name="emailMarketing" type="checkbox" checked={agreements.emailMarketing} onChange={handleAgreementChange} />
-              <span>[선택] 이메일 혜택/이벤트 수신 동의</span>
-            </label>
-            <label className="checkbox-row">
-              <input name="snsMarketing" type="checkbox" checked={agreements.snsMarketing} onChange={handleAgreementChange} />
-              <span>[선택] SMS/SNS 혜택/이벤트 수신 동의</span>
-            </label>
+            <div className="terms-actions">
+              <button className={allChecked ? 'button primary' : 'button subtle'} type="button" onClick={() => setAllAgreements(!allChecked)}>
+                <Check size={17} aria-hidden="true" />
+                {allChecked ? '전체 동의 완료' : '전체 동의하기'}
+              </button>
+              <button className={requiredChecked ? 'button subtle active' : 'button subtle'} type="button" onClick={setRequiredAgreements}>
+                필수 동의하기
+              </button>
+            </div>
+            {agreementItems.map((item) => (
+              <article className={agreements[item.key] ? 'terms-card agreed' : 'terms-card'} key={item.key}>
+                <div>
+                  <strong>{item.required ? '[필수]' : '[선택]'} {item.title}</strong>
+                  <p>{item.description}</p>
+                </div>
+                <button
+                  className={agreements[item.key] ? 'agreement-button agreed' : 'agreement-button'}
+                  type="button"
+                  onClick={() => setAgreement(item.key, !agreements[item.key])}
+                  aria-pressed={agreements[item.key]}
+                >
+                  {agreements[item.key] ? '동의 완료' : '동의하기'}
+                </button>
+              </article>
+            ))}
           </section>
 
           {message && <p className="error">{message}</p>}

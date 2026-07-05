@@ -1,8 +1,8 @@
 import { MapPin, Plus, Search, Star, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import PostcodeSearchModal from '../components/PostcodeSearchModal.jsx';
 import { apiRequest } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { openPostcodeSearch } from '../utils/postcode.js';
 
 const emptyForm = {
   label: '우리집',
@@ -23,6 +23,7 @@ export default function AddressBook() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
   const [loading, setLoading] = useState(true);
+  const [postcodeOpen, setPostcodeOpen] = useState(false);
 
   const loadAddresses = async () => {
     const data = await apiRequest('/shop/addresses');
@@ -43,22 +44,14 @@ export default function AddressBook() {
     setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const searchAddress = async () => {
-    showMessage('');
-
-    try {
-      await openPostcodeSearch(({ postalCode, address }) => {
-        setForm((current) => ({
-          ...current,
-          postal_code: postalCode,
-          address,
-          detail_address: ''
-        }));
-      });
-    } catch {
-      showMessage('주소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.', 'error');
-    }
-  };
+  const handlePostcodeComplete = useCallback(({ postalCode, address }) => {
+    setForm((current) => ({
+      ...current,
+      postal_code: postalCode,
+      address,
+      detail_address: ''
+    }));
+  }, []);
 
   const openMap = (item = form) => {
     const query = [item.address, item.detail_address].filter(Boolean).join(' ');
@@ -124,17 +117,17 @@ export default function AddressBook() {
             <div className="postcode-row">
               <label>
                 우편번호
-                <input name="postal_code" value={form.postal_code} readOnly required />
+                <input name="postal_code" value={form.postal_code} placeholder="주소 검색 후 자동 입력" readOnly required />
               </label>
-              <button className="button subtle" type="button" onClick={searchAddress}>
+              <button className="button subtle" type="button" onClick={() => setPostcodeOpen(true)}>
                 <Search size={17} aria-hidden="true" />
-                우편번호 검색
+                주소 검색
               </button>
             </div>
 
             <label>
               기본 주소
-              <input name="address" value={form.address} readOnly required />
+              <input name="address" value={form.address} placeholder="도로명/지번 주소" readOnly required />
             </label>
             <label>
               상세 주소
@@ -206,6 +199,11 @@ export default function AddressBook() {
           )}
         </div>
       </section>
+      <PostcodeSearchModal
+        open={postcodeOpen}
+        onClose={() => setPostcodeOpen(false)}
+        onComplete={handlePostcodeComplete}
+      />
     </main>
   );
 }

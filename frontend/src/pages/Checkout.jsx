@@ -1,11 +1,11 @@
 import { CreditCard, MapPin, Navigation, Search, Tag, WalletCards } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import PostcodeSearchModal from '../components/PostcodeSearchModal.jsx';
 import { apiRequest } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatPrice } from '../utils/format.js';
-import { openPostcodeSearch } from '../utils/postcode.js';
 
 const linePrice = (item) => Number(item.product.price) + Number(item.option?.extra_price || 0);
 const itemKey = (item) => item.key || `${item.product.id}:${item.option?.id || 'base'}`;
@@ -43,6 +43,7 @@ export default function Checkout() {
   const [messageType, setMessageType] = useState('info');
   const [locationMessage, setLocationMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [postcodeOpen, setPostcodeOpen] = useState(false);
 
   const totalToPay = useMemo(() => Math.max(0, totalAmount - discount), [totalAmount, discount]);
 
@@ -94,25 +95,17 @@ export default function Checkout() {
     setForm((current) => ({ ...current, save_address: true }));
   };
 
-  const searchAddress = async () => {
-    setLocationMessage('');
-
-    try {
-      await openPostcodeSearch(({ postalCode, address }) => {
-        setForm((current) => ({
-          ...current,
-          shipping_postal_code: postalCode,
-          shipping_address: address,
-          shipping_detail_address: '',
-          shipping_lat: '',
-          shipping_lng: ''
-        }));
-        setSelectedAddressId('');
-      });
-    } catch {
-      setLocationMessage('주소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
-    }
-  };
+  const handlePostcodeComplete = useCallback(({ postalCode, address }) => {
+    setForm((current) => ({
+      ...current,
+      shipping_postal_code: postalCode,
+      shipping_address: address,
+      shipping_detail_address: '',
+      shipping_lat: '',
+      shipping_lng: ''
+    }));
+    setSelectedAddressId('');
+  }, []);
 
   const useCurrentLocation = () => {
     setLocationMessage('');
@@ -130,7 +123,7 @@ export default function Checkout() {
           shipping_lat: latitude.toFixed(7),
           shipping_lng: longitude.toFixed(7)
         }));
-        setLocationMessage('현재 위치 좌표가 연결되었습니다. 실제 배송 주소는 우편번호 검색으로 한 번 더 확인해주세요.');
+        setLocationMessage('현재 위치 좌표가 연결되었습니다. 실제 배송 주소는 주소 검색으로 한 번 더 확인해주세요.');
       },
       () => setLocationMessage('위치 권한을 허용하면 현재 위치를 저장할 수 있습니다.'),
       { enableHighAccuracy: true, timeout: 10000 }
@@ -247,17 +240,17 @@ export default function Checkout() {
             <div className="postcode-row">
               <label>
                 우편번호
-                <input name="shipping_postal_code" value={form.shipping_postal_code} readOnly required />
+                <input name="shipping_postal_code" value={form.shipping_postal_code} placeholder="주소 검색 후 자동 입력" readOnly required />
               </label>
-              <button className="button subtle" type="button" onClick={searchAddress}>
+              <button className="button subtle" type="button" onClick={() => setPostcodeOpen(true)}>
                 <Search size={17} aria-hidden="true" />
-                우편번호 검색
+                주소 검색
               </button>
             </div>
 
             <label>
               기본 주소
-              <input name="shipping_address" value={form.shipping_address} readOnly required />
+              <input name="shipping_address" value={form.shipping_address} placeholder="도로명/지번 주소" readOnly required />
             </label>
             <label>
               상세 주소
@@ -375,6 +368,11 @@ export default function Checkout() {
           </div>
         </aside>
       </section>
+      <PostcodeSearchModal
+        open={postcodeOpen}
+        onClose={() => setPostcodeOpen(false)}
+        onComplete={handlePostcodeComplete}
+      />
     </main>
   );
 }
