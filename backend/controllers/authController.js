@@ -63,6 +63,18 @@ const hasSmtpConfig = () => {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 };
 
+const smtpErrorMessage = (err) => {
+  if (err?.code === 'EAUTH') {
+    return 'Gmail SMTP auth failed. Check SMTP_USER and Google app password.';
+  }
+
+  if (err?.code === 'ETIMEDOUT' || err?.code === 'ESOCKET' || err?.code === 'ECONNECTION') {
+    return 'SMTP connection timed out. Check Railway variables and Gmail SMTP settings.';
+  }
+
+  return `SMTP send failed: ${err.message || 'unknown error'}`;
+};
+
 const sendTemporaryPasswordMail = async ({ to, name, temporaryPassword }) => {
   if (!hasSmtpConfig()) {
     console.info(`[DEV PASSWORD RESET] ${to}: ${temporaryPassword}`);
@@ -76,15 +88,24 @@ const sendTemporaryPasswordMail = async ({ to, name, temporaryPassword }) => {
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
-    }
+    },
+    connectionTimeout: 12000,
+    greetingTimeout: 12000,
+    socketTimeout: 12000
   });
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to,
-    subject: '[HomeShop] 임시 비밀번호 안내',
-    text: `${name}님, 임시 비밀번호는 ${temporaryPassword} 입니다. 로그인 후 반드시 비밀번호를 변경해주세요.`
-  });
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to,
+      subject: '[HomeShop] Password reset temporary password',
+      text: `Hello ${name}, your temporary password is ${temporaryPassword}. Please log in and change your password.`
+    });
+  } catch (err) {
+    err.status = 502;
+    err.message = smtpErrorMessage(err);
+    throw err;
+  }
 
   return { sent: true };
 };
