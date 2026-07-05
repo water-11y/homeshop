@@ -17,6 +17,7 @@ import MyPage from './pages/MyPage.jsx';
 import Notifications from './pages/Notifications.jsx';
 import OrderDetail from './pages/OrderDetail.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
+import ProfileEdit from './pages/ProfileEdit.jsx';
 import Products from './pages/Products.jsx';
 import Register from './pages/Register.jsx';
 import Wishlist from './pages/Wishlist.jsx';
@@ -159,6 +160,14 @@ export default function App() {
           element={
             <PrivateRoute>
               <MyPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile/edit"
+          element={
+            <PrivateRoute>
+              <ProfileEdit />
             </PrivateRoute>
           }
         />

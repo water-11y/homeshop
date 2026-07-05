@@ -7,14 +7,17 @@ export const assetUrl = (path) => {
   return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
 };
 
-export const getToken = () => localStorage.getItem('token');
+export const getToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
 
-export const setToken = (token) => {
-  localStorage.setItem('token', token);
+export const setToken = (token, remember = true) => {
+  clearToken();
+  const storage = remember ? localStorage : sessionStorage;
+  storage.setItem('token', token);
 };
 
 export const clearToken = () => {
   localStorage.removeItem('token');
+  sessionStorage.removeItem('token');
 };
 
 export const apiRequest = async (path, options = {}) => {

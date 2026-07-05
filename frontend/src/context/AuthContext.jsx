@@ -29,12 +29,12 @@ export function AuthProvider({ children }) {
     refreshUser();
   }, []);
 
-  const login = async ({ username, password }) => {
+  const login = async ({ username, password, remember = true }) => {
     const data = await apiRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password })
     });
-    setToken(data.token);
+    setToken(data.token, remember);
     setUser(data.user);
     return data.user;
   };

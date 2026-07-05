@@ -1,4 +1,4 @@
-import { Bell, LogOut, Mail, MapPin, PackageCheck, Shield, Store, User } from 'lucide-react';
+import { Bell, LogOut, Mail, MapPin, PackageCheck, Shield, Store, User, UserCog } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { assetUrl } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -52,6 +52,11 @@ export default function MyPage() {
         </dl>
 
         <div className="quick-actions-grid">
+          <Link className="quick-action-card" to="/profile/edit">
+            <UserCog size={22} aria-hidden="true" />
+            <strong>개인정보 수정</strong>
+            <span>이름, 이메일, 비밀번호 변경</span>
+          </Link>
           <Link className="quick-action-card" to="/orders">
             <PackageCheck size={22} aria-hidden="true" />
             <strong>주문내역</strong>
