@@ -1,17 +1,18 @@
-import { CreditCard, MapPin, Navigation, Tag, WalletCards } from 'lucide-react';
+import { CreditCard, MapPin, Navigation, Search, Tag, WalletCards } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatPrice } from '../utils/format.js';
+import { openPostcodeSearch } from '../utils/postcode.js';
 
 const linePrice = (item) => Number(item.product.price) + Number(item.option?.extra_price || 0);
 const itemKey = (item) => item.key || `${item.product.id}:${item.option?.id || 'base'}`;
 
 const paymentMethods = [
   { value: 'mock_card', label: '신용/체크카드', description: '카드 승인 방식으로 결제합니다.' },
-  { value: 'mock_easy', label: '간편결제', description: '앱 결제처럼 빠르게 진행합니다.' },
+  { value: 'mock_easy', label: '간편결제', description: '간편결제처럼 빠르게 진행합니다.' },
   { value: 'mock_bank', label: '계좌이체', description: '입금 확인 후 주문이 확정됩니다.' },
   { value: 'mock_phone', label: '휴대폰 결제', description: '휴대폰 인증 결제로 처리합니다.' }
 ];
@@ -23,7 +24,9 @@ export default function Checkout() {
   const [form, setForm] = useState({
     shipping_name: user?.name || '',
     shipping_phone: '',
+    shipping_postal_code: '',
     shipping_address: '',
+    shipping_detail_address: '',
     shipping_lat: '',
     shipping_lng: '',
     memo: '',
@@ -37,10 +40,32 @@ export default function Checkout() {
   const [coupons, setCoupons] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('info');
   const [locationMessage, setLocationMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const totalToPay = useMemo(() => Math.max(0, totalAmount - discount), [totalAmount, discount]);
+
+  const showMessage = (text, type = 'info') => {
+    setMessage(text);
+    setMessageType(type);
+  };
+
+  const applyAddress = (address) => {
+    setSelectedAddressId(String(address.id));
+    setForm((current) => ({
+      ...current,
+      shipping_name: address.recipient,
+      shipping_phone: address.phone,
+      shipping_postal_code: address.postal_code || '',
+      shipping_address: address.address,
+      shipping_detail_address: address.detail_address || '',
+      shipping_lat: address.latitude || '',
+      shipping_lng: address.longitude || '',
+      address_label: address.label || current.address_label,
+      save_address: false
+    }));
+  };
 
   useEffect(() => {
     apiRequest('/shop/coupons').then((data) => setCoupons(data.coupons)).catch(() => {});
@@ -53,20 +78,6 @@ export default function Checkout() {
       .catch(() => {});
   }, []);
 
-  const applyAddress = (address) => {
-    setSelectedAddressId(String(address.id));
-    setForm((current) => ({
-      ...current,
-      shipping_name: address.recipient,
-      shipping_phone: address.phone,
-      shipping_address: address.address,
-      shipping_lat: address.latitude || '',
-      shipping_lng: address.longitude || '',
-      address_label: address.label || current.address_label,
-      save_address: false
-    }));
-  };
-
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
     setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
@@ -74,7 +85,33 @@ export default function Checkout() {
 
   const handleAddressSelect = (event) => {
     const address = addresses.find((item) => String(item.id) === event.target.value);
-    if (address) applyAddress(address);
+    if (address) {
+      applyAddress(address);
+      return;
+    }
+
+    setSelectedAddressId('');
+    setForm((current) => ({ ...current, save_address: true }));
+  };
+
+  const searchAddress = async () => {
+    setLocationMessage('');
+
+    try {
+      await openPostcodeSearch(({ postalCode, address }) => {
+        setForm((current) => ({
+          ...current,
+          shipping_postal_code: postalCode,
+          shipping_address: address,
+          shipping_detail_address: '',
+          shipping_lat: '',
+          shipping_lng: ''
+        }));
+        setSelectedAddressId('');
+      });
+    } catch {
+      setLocationMessage('주소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   const useCurrentLocation = () => {
@@ -91,10 +128,9 @@ export default function Checkout() {
         setForm((current) => ({
           ...current,
           shipping_lat: latitude.toFixed(7),
-          shipping_lng: longitude.toFixed(7),
-          shipping_address: current.shipping_address || `현재 위치 좌표 ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+          shipping_lng: longitude.toFixed(7)
         }));
-        setLocationMessage('현재 위치가 배송지에 연결되었습니다. 상세 주소는 직접 확인해주세요.');
+        setLocationMessage('현재 위치 좌표가 연결되었습니다. 실제 배송 주소는 우편번호 검색으로 한 번 더 확인해주세요.');
       },
       () => setLocationMessage('위치 권한을 허용하면 현재 위치를 저장할 수 있습니다.'),
       { enableHighAccuracy: true, timeout: 10000 }
@@ -102,12 +138,13 @@ export default function Checkout() {
   };
 
   const openMap = () => {
+    const fullAddress = [form.shipping_address, form.shipping_detail_address].filter(Boolean).join(' ');
     const query = form.shipping_lat && form.shipping_lng
       ? `${form.shipping_lat},${form.shipping_lng}`
-      : form.shipping_address;
+      : fullAddress;
 
     if (!query) {
-      setLocationMessage('먼저 주소나 현재 위치를 입력해주세요.');
+      setLocationMessage('먼저 주소를 검색하거나 현재 위치를 가져와주세요.');
       return;
     }
 
@@ -115,7 +152,7 @@ export default function Checkout() {
   };
 
   const applyCoupon = async () => {
-    setMessage('');
+    showMessage('');
     setDiscount(0);
 
     try {
@@ -125,15 +162,15 @@ export default function Checkout() {
       });
       setDiscount(Number(data.discount || 0));
       setCouponCode(data.coupon.code);
-      setMessage('쿠폰이 적용되었습니다.');
+      showMessage('쿠폰이 적용되었습니다.', 'success');
     } catch (err) {
-      setMessage(err.message);
+      showMessage(err.message, 'error');
     }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setMessage('');
+    showMessage('');
     setSubmitting(true);
 
     try {
@@ -152,7 +189,7 @@ export default function Checkout() {
       clearCart();
       navigate('/orders');
     } catch (err) {
-      setMessage(err.message);
+      showMessage(err.message, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -207,15 +244,30 @@ export default function Checkout() {
               </label>
             </div>
 
+            <div className="postcode-row">
+              <label>
+                우편번호
+                <input name="shipping_postal_code" value={form.shipping_postal_code} readOnly required />
+              </label>
+              <button className="button subtle" type="button" onClick={searchAddress}>
+                <Search size={17} aria-hidden="true" />
+                우편번호 검색
+              </button>
+            </div>
+
             <label>
-              배송 주소
-              <input name="shipping_address" value={form.shipping_address} onChange={handleChange} placeholder="주소를 입력하거나 현재 위치를 가져오세요." required />
+              기본 주소
+              <input name="shipping_address" value={form.shipping_address} readOnly required />
+            </label>
+            <label>
+              상세 주소
+              <input name="shipping_detail_address" value={form.shipping_detail_address} onChange={handleChange} placeholder="동, 호수, 건물명 등" />
             </label>
 
             <div className="map-action-row">
               <button className="button subtle" type="button" onClick={useCurrentLocation}>
                 <Navigation size={17} aria-hidden="true" />
-                현재 위치 가져오기
+                현재 위치 좌표 저장
               </button>
               <button className="button subtle" type="button" onClick={openMap}>
                 <MapPin size={17} aria-hidden="true" />
@@ -263,7 +315,7 @@ export default function Checkout() {
               ))}
             </div>
 
-            {message && <p className={message.includes('적용') ? 'success' : 'error'}>{message}</p>}
+            {message && <p className={messageType === 'success' ? 'success' : 'error'}>{message}</p>}
             <button className="button primary full checkout-pay-button" type="submit" disabled={submitting}>
               <CreditCard size={18} aria-hidden="true" />
               {submitting ? '결제 처리 중...' : `${formatPrice(totalToPay)} 결제하기`}

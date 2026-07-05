@@ -1792,6 +1792,53 @@ label {
   font-size: 13px;
 }
 
+.terms-box {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #d9e1ec;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.terms-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #176b5f;
+  font-weight: 900;
+}
+
+.terms-all {
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e7f0;
+}
+
+.terms-copy {
+  margin: -4px 0 4px 28px;
+  color: #647286;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.postcode-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.postcode-row .button {
+  min-height: 46px;
+  white-space: nowrap;
+}
+
+input[readonly] {
+  background: #f8fafc;
+  cursor: default;
+}
+
 @media (max-width: 980px) {
   .product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1834,6 +1881,7 @@ label {
   .profile-list,
   .auth-helper-actions,
   .checkout-grid,
+  .postcode-row,
   .payment-methods,
   .quick-actions-grid,
   .order-row {

@@ -1,5 +1,5 @@
+import { Camera, FileUp, ShieldCheck, UserPlus } from 'lucide-react';
 import { useState } from 'react';
-import { Camera, FileUp, UserPlus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -15,6 +15,12 @@ export default function Register() {
     name: '',
     email: ''
   });
+  const [agreements, setAgreements] = useState({
+    terms: false,
+    privacy: false,
+    emailMarketing: false,
+    snsMarketing: false
+  });
   const [facePhoto, setFacePhoto] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [message, setMessage] = useState('');
@@ -22,6 +28,21 @@ export default function Register() {
 
   const handleChange = (event) => {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+  };
+
+  const handleAgreementChange = (event) => {
+    const { name, checked } = event.target;
+    setAgreements((current) => ({ ...current, [name]: checked }));
+  };
+
+  const handleAllAgreements = (event) => {
+    const checked = event.target.checked;
+    setAgreements({
+      terms: checked,
+      privacy: checked,
+      emailMarketing: checked,
+      snsMarketing: checked
+    });
   };
 
   const handleFacePhotoChange = (event) => {
@@ -37,12 +58,17 @@ export default function Register() {
     setMessage('');
 
     if (form.password !== form.passwordConfirm) {
-      setMessage('비밀번호가 일치하지 않습니다.');
+      setMessage('비밀번호가 서로 일치하지 않습니다.');
       return;
     }
 
     if (!facePhoto) {
-      setMessage('얼굴 사진을 1장 첨부해주세요.');
+      setMessage('얼굴 사진 1장을 첨부해주세요.');
+      return;
+    }
+
+    if (!agreements.terms || !agreements.privacy) {
+      setMessage('필수 약관과 개인정보 수집 및 이용에 동의해주세요.');
       return;
     }
 
@@ -51,6 +77,10 @@ export default function Register() {
     payload.append('password', form.password);
     payload.append('name', form.name);
     payload.append('email', form.email);
+    payload.append('terms_agreed', String(agreements.terms));
+    payload.append('privacy_agreed', String(agreements.privacy));
+    payload.append('email_marketing_consent', String(agreements.emailMarketing));
+    payload.append('sns_marketing_consent', String(agreements.snsMarketing));
     payload.append('facePhoto', facePhoto);
     attachments.forEach((file) => payload.append('attachments', file));
 
@@ -65,6 +95,8 @@ export default function Register() {
       setSubmitting(false);
     }
   };
+
+  const allChecked = Object.values(agreements).every(Boolean);
 
   return (
     <main className="page form-page">
@@ -118,6 +150,35 @@ export default function Register() {
               ))}
             </ul>
           )}
+
+          <section className="terms-box">
+            <div className="terms-title">
+              <ShieldCheck size={18} aria-hidden="true" />
+              <strong>약관 동의</strong>
+            </div>
+            <label className="checkbox-row terms-all">
+              <input type="checkbox" checked={allChecked} onChange={handleAllAgreements} />
+              전체 동의
+            </label>
+            <label className="checkbox-row">
+              <input name="terms" type="checkbox" checked={agreements.terms} onChange={handleAgreementChange} />
+              <span>[필수] 이용약관 동의</span>
+            </label>
+            <p className="terms-copy">서비스 이용, 주문 처리, 회원 관리, 부정 이용 방지에 필요한 기본 약관입니다.</p>
+            <label className="checkbox-row">
+              <input name="privacy" type="checkbox" checked={agreements.privacy} onChange={handleAgreementChange} />
+              <span>[필수] 개인정보 수집 및 이용 동의</span>
+            </label>
+            <p className="terms-copy">아이디, 이름, 이메일, 얼굴 사진, 첨부파일 등 회원 확인과 서비스 제공에 필요한 정보를 수집합니다.</p>
+            <label className="checkbox-row">
+              <input name="emailMarketing" type="checkbox" checked={agreements.emailMarketing} onChange={handleAgreementChange} />
+              <span>[선택] 이메일 혜택/이벤트 수신 동의</span>
+            </label>
+            <label className="checkbox-row">
+              <input name="snsMarketing" type="checkbox" checked={agreements.snsMarketing} onChange={handleAgreementChange} />
+              <span>[선택] SMS/SNS 혜택/이벤트 수신 동의</span>
+            </label>
+          </section>
 
           {message && <p className="error">{message}</p>}
           <button className="button primary full" disabled={submitting} type="submit">

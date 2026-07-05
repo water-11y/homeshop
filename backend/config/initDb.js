@@ -11,6 +11,10 @@ export const ensureDatabase = async () => {
       role VARCHAR(20) DEFAULT 'user',
       approval_status VARCHAR(20) NOT NULL DEFAULT 'pending',
       face_photo_path VARCHAR(255) NULL,
+      terms_agreed_at TIMESTAMP NULL,
+      privacy_agreed_at TIMESTAMP NULL,
+      email_marketing_consent TINYINT(1) NOT NULL DEFAULT 0,
+      sns_marketing_consent TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
@@ -76,7 +80,9 @@ export const ensureDatabase = async () => {
       status VARCHAR(20) NOT NULL DEFAULT 'paid',
       shipping_name VARCHAR(50) NOT NULL,
       shipping_phone VARCHAR(30) NOT NULL,
+      shipping_postal_code VARCHAR(20) NULL,
       shipping_address VARCHAR(255) NOT NULL,
+      shipping_detail_address VARCHAR(255) NULL,
       shipping_lat DECIMAL(10, 7) NULL,
       shipping_lng DECIMAL(10, 7) NULL,
       memo VARCHAR(255) NULL,
@@ -199,7 +205,9 @@ export const ensureDatabase = async () => {
       label VARCHAR(80) NOT NULL DEFAULT '기본 배송지',
       recipient VARCHAR(50) NOT NULL,
       phone VARCHAR(30) NOT NULL,
+      postal_code VARCHAR(20) NULL,
       address VARCHAR(255) NOT NULL,
+      detail_address VARCHAR(255) NULL,
       latitude DECIMAL(10, 7) NULL,
       longitude DECIMAL(10, 7) NULL,
       is_default TINYINT(1) NOT NULL DEFAULT 0,
@@ -323,8 +331,16 @@ export const ensureDatabase = async () => {
   await alterIfMissing("ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(40) NULL");
   await alterIfMissing("ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0");
   await alterIfMissing("ALTER TABLE orders ADD COLUMN payment_method VARCHAR(40) NOT NULL DEFAULT 'mock_card'");
+  await alterIfMissing("ALTER TABLE orders ADD COLUMN shipping_postal_code VARCHAR(20) NULL");
+  await alterIfMissing("ALTER TABLE orders ADD COLUMN shipping_detail_address VARCHAR(255) NULL");
   await alterIfMissing("ALTER TABLE orders ADD COLUMN shipping_lat DECIMAL(10, 7) NULL");
   await alterIfMissing("ALTER TABLE orders ADD COLUMN shipping_lng DECIMAL(10, 7) NULL");
   await alterIfMissing("ALTER TABLE order_items ADD COLUMN option_id INT NULL");
   await alterIfMissing("ALTER TABLE order_items ADD COLUMN option_summary VARCHAR(255) NULL");
+  await alterIfMissing("ALTER TABLE users ADD COLUMN terms_agreed_at TIMESTAMP NULL");
+  await alterIfMissing("ALTER TABLE users ADD COLUMN privacy_agreed_at TIMESTAMP NULL");
+  await alterIfMissing("ALTER TABLE users ADD COLUMN email_marketing_consent TINYINT(1) NOT NULL DEFAULT 0");
+  await alterIfMissing("ALTER TABLE users ADD COLUMN sns_marketing_consent TINYINT(1) NOT NULL DEFAULT 0");
+  await alterIfMissing("ALTER TABLE shipping_addresses ADD COLUMN postal_code VARCHAR(20) NULL");
+  await alterIfMissing("ALTER TABLE shipping_addresses ADD COLUMN detail_address VARCHAR(255) NULL");
 };

@@ -4,7 +4,8 @@ import { createNotification, getCouponDiscount } from './shopFeatureController.j
 const publicOrderSql = `
   SELECT id, order_number, user_id, total_amount, discount_amount, coupon_code,
          payment_method, status, shipping_name, shipping_phone, shipping_address,
-         shipping_lat, shipping_lng, memo, created_at, updated_at
+         shipping_postal_code, shipping_detail_address, shipping_lat, shipping_lng,
+         memo, created_at, updated_at
   FROM orders
 `;
 
@@ -36,7 +37,9 @@ export const createOrder = async (req, res, next) => {
       items,
       shipping_name,
       shipping_phone,
+      shipping_postal_code = '',
       shipping_address,
+      shipping_detail_address = '',
       shipping_lat = null,
       shipping_lng = null,
       memo = '',
@@ -161,8 +164,9 @@ export const createOrder = async (req, res, next) => {
     const [orderResult] = await connection.query(
       `INSERT INTO orders
         (order_number, user_id, total_amount, discount_amount, coupon_code, payment_method,
-         status, shipping_name, shipping_phone, shipping_address, shipping_lat, shipping_lng, memo)
-       VALUES (?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, ?)`,
+         status, shipping_name, shipping_phone, shipping_postal_code, shipping_address,
+         shipping_detail_address, shipping_lat, shipping_lng, memo)
+       VALUES (?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orderNumber,
         req.user.id,
@@ -172,7 +176,9 @@ export const createOrder = async (req, res, next) => {
         payment_method,
         shipping_name,
         shipping_phone,
+        shipping_postal_code || null,
         shipping_address,
+        shipping_detail_address || null,
         latitude,
         longitude,
         memo
@@ -213,14 +219,16 @@ export const createOrder = async (req, res, next) => {
 
       await connection.query(
         `INSERT INTO shipping_addresses
-          (user_id, label, recipient, phone, address, latitude, longitude, is_default)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          (user_id, label, recipient, phone, postal_code, address, detail_address, latitude, longitude, is_default)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.user.id,
           String(address_label || '배송지').trim(),
           shipping_name,
           shipping_phone,
+          shipping_postal_code || null,
           shipping_address,
+          shipping_detail_address || null,
           latitude,
           longitude,
           shouldDefault ? 1 : 0

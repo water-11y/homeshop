@@ -1,13 +1,16 @@
-import { MapPin, Navigation, Plus, Star, Trash2 } from 'lucide-react';
+import { MapPin, Plus, Search, Star, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { openPostcodeSearch } from '../utils/postcode.js';
 
 const emptyForm = {
   label: '우리집',
   recipient: '',
   phone: '',
+  postal_code: '',
   address: '',
+  detail_address: '',
   latitude: '',
   longitude: '',
   is_default: true
@@ -18,6 +21,7 @@ export default function AddressBook() {
   const [addresses, setAddresses] = useState([]);
   const [form, setForm] = useState({ ...emptyForm, recipient: user?.name || '' });
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('info');
   const [loading, setLoading] = useState(true);
 
   const loadAddresses = async () => {
@@ -29,41 +33,38 @@ export default function AddressBook() {
     loadAddresses().finally(() => setLoading(false));
   }, []);
 
+  const showMessage = (text, type = 'info') => {
+    setMessage(text);
+    setMessageType(type);
+  };
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
     setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const useCurrentLocation = () => {
-    setMessage('');
-    if (!navigator.geolocation) {
-      setMessage('이 기기에서는 위치 기능을 사용할 수 없습니다.');
-      return;
-    }
+  const searchAddress = async () => {
+    showMessage('');
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
+    try {
+      await openPostcodeSearch(({ postalCode, address }) => {
         setForm((current) => ({
           ...current,
-          latitude: latitude.toFixed(7),
-          longitude: longitude.toFixed(7),
-          address: current.address || `현재 위치 좌표 ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+          postal_code: postalCode,
+          address,
+          detail_address: ''
         }));
-        setMessage('현재 위치를 가져왔습니다. 상세 주소를 확인해주세요.');
-      },
-      () => setMessage('위치 권한을 허용하면 현재 위치를 저장할 수 있습니다.'),
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      });
+    } catch {
+      showMessage('주소 검색 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.', 'error');
+    }
   };
 
-  const openMap = (address = form) => {
-    const query = address.latitude && address.longitude
-      ? `${address.latitude},${address.longitude}`
-      : address.address;
+  const openMap = (item = form) => {
+    const query = [item.address, item.detail_address].filter(Boolean).join(' ');
 
     if (!query) {
-      setMessage('지도에서 확인할 주소가 없습니다.');
+      showMessage('지도에서 확인할 주소가 없습니다.', 'error');
       return;
     }
 
@@ -72,7 +73,7 @@ export default function AddressBook() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setMessage('');
+    showMessage('');
 
     try {
       await apiRequest('/shop/addresses', {
@@ -81,9 +82,9 @@ export default function AddressBook() {
       });
       setForm({ ...emptyForm, recipient: user?.name || '' });
       await loadAddresses();
-      setMessage('배송지가 저장되었습니다.');
+      showMessage('배송지가 저장되었습니다.', 'success');
     } catch (err) {
-      setMessage(err.message);
+      showMessage(err.message, 'error');
     }
   };
 
@@ -108,6 +109,7 @@ export default function AddressBook() {
               배송지 이름
               <input name="label" value={form.label} onChange={handleChange} required />
             </label>
+
             <div className="checkout-grid">
               <label>
                 받는 사람
@@ -118,28 +120,39 @@ export default function AddressBook() {
                 <input name="phone" value={form.phone} onChange={handleChange} placeholder="010-0000-0000" required />
               </label>
             </div>
-            <label>
-              주소
-              <input name="address" value={form.address} onChange={handleChange} placeholder="주소 또는 위치 설명" required />
-            </label>
-            <div className="map-action-row">
-              <button className="button subtle" type="button" onClick={useCurrentLocation}>
-                <Navigation size={17} aria-hidden="true" />
-                현재 위치
-              </button>
-              <button className="button subtle" type="button" onClick={() => openMap()}>
-                <MapPin size={17} aria-hidden="true" />
-                지도 열기
+
+            <div className="postcode-row">
+              <label>
+                우편번호
+                <input name="postal_code" value={form.postal_code} readOnly required />
+              </label>
+              <button className="button subtle" type="button" onClick={searchAddress}>
+                <Search size={17} aria-hidden="true" />
+                우편번호 검색
               </button>
             </div>
-            {(form.latitude && form.longitude) && (
-              <p className="muted small">좌표: {form.latitude}, {form.longitude}</p>
-            )}
+
+            <label>
+              기본 주소
+              <input name="address" value={form.address} readOnly required />
+            </label>
+            <label>
+              상세 주소
+              <input name="detail_address" value={form.detail_address} onChange={handleChange} placeholder="동, 호수, 건물명 등" />
+            </label>
+
+            <div className="map-action-row">
+              <button className="button subtle" type="button" onClick={() => openMap()}>
+                <MapPin size={17} aria-hidden="true" />
+                지도에서 확인
+              </button>
+            </div>
+
             <label className="checkbox-row">
               <input name="is_default" type="checkbox" checked={form.is_default} onChange={handleChange} />
               기본 배송지로 저장
             </label>
-            {message && <p className={message.includes('저장') || message.includes('가져') ? 'success' : 'error'}>{message}</p>}
+            {message && <p className={messageType === 'success' ? 'success' : 'error'}>{message}</p>}
             <button className="button primary full" type="submit">
               <Plus size={18} aria-hidden="true" />
               배송지 추가
@@ -167,10 +180,10 @@ export default function AddressBook() {
                     {address.is_default ? <span className="status-pill">기본</span> : null}
                   </div>
                   <p>{address.recipient} · {address.phone}</p>
-                  <p>{address.address}</p>
-                  {(address.latitude && address.longitude) && (
-                    <small>{address.latitude}, {address.longitude}</small>
-                  )}
+                  <p>
+                    {address.postal_code ? `(${address.postal_code}) ` : ''}
+                    {address.address} {address.detail_address || ''}
+                  </p>
                   <div className="row-actions">
                     <button className="button subtle" type="button" onClick={() => openMap(address)}>
                       <MapPin size={16} aria-hidden="true" />

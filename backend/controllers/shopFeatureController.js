@@ -270,7 +270,8 @@ export const createNotification = async (
 export const listAddresses = async (req, res, next) => {
   try {
     const [addresses] = await pool.query(
-      `SELECT id, label, recipient, phone, address, latitude, longitude, is_default, created_at
+      `SELECT id, label, recipient, phone, postal_code, address, detail_address,
+              latitude, longitude, is_default, created_at
        FROM shipping_addresses
        WHERE user_id = ?
        ORDER BY is_default DESC, updated_at DESC`,
@@ -291,7 +292,9 @@ export const createAddress = async (req, res, next) => {
       label = '기본 배송지',
       recipient,
       phone,
+      postal_code = '',
       address,
+      detail_address = '',
       latitude = null,
       longitude = null,
       is_default = false
@@ -317,14 +320,16 @@ export const createAddress = async (req, res, next) => {
 
     const [result] = await connection.query(
       `INSERT INTO shipping_addresses
-        (user_id, label, recipient, phone, address, latitude, longitude, is_default)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, label, recipient, phone, postal_code, address, detail_address, latitude, longitude, is_default)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.id,
         String(label || '배송지').trim(),
         recipient,
         phone,
+        postal_code || null,
         address,
+        detail_address || null,
         normalizeOptionalNumber(latitude),
         normalizeOptionalNumber(longitude),
         shouldDefault ? 1 : 0
@@ -349,7 +354,9 @@ export const updateAddress = async (req, res, next) => {
       label = '배송지',
       recipient,
       phone,
+      postal_code = '',
       address,
+      detail_address = '',
       latitude = null,
       longitude = null,
       is_default = false
@@ -369,14 +376,17 @@ export const updateAddress = async (req, res, next) => {
 
     const [result] = await connection.query(
       `UPDATE shipping_addresses
-       SET label = ?, recipient = ?, phone = ?, address = ?, latitude = ?, longitude = ?,
+       SET label = ?, recipient = ?, phone = ?, postal_code = ?, address = ?, detail_address = ?,
+           latitude = ?, longitude = ?,
            is_default = IF(?, 1, is_default)
        WHERE id = ? AND user_id = ?`,
       [
         String(label || '배송지').trim(),
         recipient,
         phone,
+        postal_code || null,
         address,
+        detail_address || null,
         normalizeOptionalNumber(latitude),
         normalizeOptionalNumber(longitude),
         is_default ? 1 : 0,

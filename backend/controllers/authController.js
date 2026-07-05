@@ -41,6 +41,10 @@ const uploadPathFor = (file, folder) => {
   return `/uploads/users/${folder}/${file.filename}`;
 };
 
+const isTruthy = (value) => {
+  return value === true || value === 'true' || value === '1' || value === 1 || value === 'on';
+};
+
 const maskUsername = (username) => {
   const value = String(username || '');
   if (value.length <= 4) {
@@ -89,7 +93,16 @@ export const register = async (req, res, next) => {
   let connection;
 
   try {
-    const { username, password, name, email } = req.body;
+    const {
+      username,
+      password,
+      name,
+      email,
+      terms_agreed,
+      privacy_agreed,
+      email_marketing_consent = false,
+      sns_marketing_consent = false
+    } = req.body;
     const facePhoto = req.files?.facePhoto?.[0] || null;
     const attachments = req.files?.attachments || [];
 
@@ -101,6 +114,11 @@ export const register = async (req, res, next) => {
     if (password.length < 8) {
       await removeUploadedFiles(req.files);
       return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+    }
+
+    if (!isTruthy(terms_agreed) || !isTruthy(privacy_agreed)) {
+      await removeUploadedFiles(req.files);
+      return res.status(400).json({ message: '필수 약관과 개인정보 수집 및 이용에 동의해주세요.' });
     }
 
     if (!facePhoto) {
@@ -129,8 +147,21 @@ export const register = async (req, res, next) => {
     await connection.beginTransaction();
 
     const [result] = await connection.query(
-      'INSERT INTO users (username, password, name, email, role, approval_status, face_photo_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [username, hashedPassword, name, email, role, approvalStatus, facePhotoPath]
+      `INSERT INTO users
+        (username, password, name, email, role, approval_status, face_photo_path,
+         terms_agreed_at, privacy_agreed_at, email_marketing_consent, sns_marketing_consent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?)`,
+      [
+        username,
+        hashedPassword,
+        name,
+        email,
+        role,
+        approvalStatus,
+        facePhotoPath,
+        isTruthy(email_marketing_consent) ? 1 : 0,
+        isTruthy(sns_marketing_consent) ? 1 : 0
+      ]
     );
 
     for (const file of attachments) {
