@@ -50,7 +50,35 @@ const maskUsername = (username) => {
 
 const makeTemporaryPassword = () => String(Math.floor(10000000 + Math.random() * 90000000));
 
+const hasResendConfig = () => Boolean(process.env.RESEND_API_KEY);
+
 const hasSmtpConfig = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+
+const sendTemporaryPasswordWithResend = async ({ to, name, temporaryPassword }) => {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: process.env.RESEND_FROM || 'HomeShop <onboarding@resend.dev>',
+      to,
+      subject: '[HomeShop] Temporary password',
+      text: `Hello ${name}, your temporary password is ${temporaryPassword}. Please log in and change your password.`
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const err = new Error(data.message || `Resend API failed with status ${response.status}`);
+    err.status = 502;
+    throw err;
+  }
+
+  return { sent: true, provider: 'resend', id: data.id };
+};
 
 const smtpErrorMessage = (err) => {
   if (err?.code === 'EAUTH') {
@@ -65,6 +93,10 @@ const smtpErrorMessage = (err) => {
 };
 
 const sendTemporaryPasswordMail = async ({ to, name, temporaryPassword }) => {
+  if (hasResendConfig()) {
+    return sendTemporaryPasswordWithResend({ to, name, temporaryPassword });
+  }
+
   if (!hasSmtpConfig()) {
     console.info(`[DEV PASSWORD RESET] ${to}: ${temporaryPassword}`);
     return { sent: false, developmentPassword: temporaryPassword };
