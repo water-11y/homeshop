@@ -52,7 +52,10 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ message: 'Server error occurred.' });
+  const status = err.status || 500;
+  const message = err.message || 'Server error occurred.';
+
+  res.status(status).json({ message });
 });
 
 ensureDatabase()
