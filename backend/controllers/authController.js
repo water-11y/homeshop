@@ -27,19 +27,13 @@ const publicUser = (user) => ({
   created_at: user.created_at
 });
 
-const uploadedFiles = (files = {}) => {
-  return Object.values(files).flat();
-};
+const uploadedFiles = (files = {}) => Object.values(files).flat();
 
 const removeUploadedFiles = async (files = {}) => {
-  await Promise.allSettled(
-    uploadedFiles(files).map((file) => fs.unlink(file.path))
-  );
+  await Promise.allSettled(uploadedFiles(files).map((file) => fs.unlink(file.path)));
 };
 
-const uploadPathFor = (file, folder) => {
-  return `/uploads/users/${folder}/${file.filename}`;
-};
+const uploadPathFor = (file, folder) => `/uploads/users/${folder}/${file.filename}`;
 
 const isTruthy = (value) => {
   return value === true || value === 'true' || value === '1' || value === 1 || value === 'on';
@@ -54,25 +48,20 @@ const maskUsername = (username) => {
   return `${value.slice(0, -4)}${'*'.repeat(4)}`;
 };
 
-const makeTemporaryPassword = () => {
-  const numbers = Math.floor(10000000 + Math.random() * 90000000);
-  return String(numbers);
-};
+const makeTemporaryPassword = () => String(Math.floor(10000000 + Math.random() * 90000000));
 
-const hasSmtpConfig = () => {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-};
+const hasSmtpConfig = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 
 const smtpErrorMessage = (err) => {
   if (err?.code === 'EAUTH') {
-    return 'Gmail SMTP auth failed. Check SMTP_USER and Google app password.';
+    return 'Gmail SMTP 인증에 실패했습니다. SMTP_USER와 Google 앱 비밀번호를 확인해주세요.';
   }
 
   if (err?.code === 'ETIMEDOUT' || err?.code === 'ESOCKET' || err?.code === 'ECONNECTION') {
-    return 'SMTP connection timed out. Check Railway variables and Gmail SMTP settings.';
+    return 'SMTP 연결 시간이 초과되었습니다. Railway 변수와 Gmail SMTP 설정을 확인해주세요.';
   }
 
-  return `SMTP send failed: ${err.message || 'unknown error'}`;
+  return `SMTP 발송 실패: ${err.message || '알 수 없는 오류'}`;
 };
 
 const sendTemporaryPasswordMail = async ({ to, name, temporaryPassword }) => {
@@ -98,8 +87,8 @@ const sendTemporaryPasswordMail = async ({ to, name, temporaryPassword }) => {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to,
-      subject: '[HomeShop] Password reset temporary password',
-      text: `Hello ${name}, your temporary password is ${temporaryPassword}. Please log in and change your password.`
+      subject: '[HomeShop] 임시 비밀번호 안내',
+      text: `${name}님, 임시 비밀번호는 ${temporaryPassword} 입니다. 로그인 후 개인정보 수정에서 비밀번호를 변경해주세요.`
     });
   } catch (err) {
     err.status = 502;
@@ -129,12 +118,12 @@ export const register = async (req, res, next) => {
 
     if (!username || !password || !name || !email) {
       await removeUploadedFiles(req.files);
-      return res.status(400).json({ message: 'Please enter all required fields.' });
+      return res.status(400).json({ message: '필수 정보를 모두 입력해주세요.' });
     }
 
     if (password.length < 8) {
       await removeUploadedFiles(req.files);
-      return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+      return res.status(400).json({ message: '비밀번호는 8자 이상이어야 합니다.' });
     }
 
     if (!isTruthy(terms_agreed) || !isTruthy(privacy_agreed)) {
@@ -144,7 +133,7 @@ export const register = async (req, res, next) => {
 
     if (!facePhoto) {
       await removeUploadedFiles(req.files);
-      return res.status(400).json({ message: '얼굴 사진을 1장 첨부해주세요.' });
+      return res.status(400).json({ message: '얼굴 사진 1장을 첨부해주세요.' });
     }
 
     const [existingUsers] = await pool.query(
@@ -154,7 +143,7 @@ export const register = async (req, res, next) => {
 
     if (existingUsers.length > 0) {
       await removeUploadedFiles(req.files);
-      return res.status(409).json({ message: 'Username or email is already in use.' });
+      return res.status(409).json({ message: '이미 사용 중인 아이디 또는 이메일입니다.' });
     }
 
     const [[countRow]] = await pool.query('SELECT COUNT(*) AS total FROM users');
@@ -201,15 +190,14 @@ export const register = async (req, res, next) => {
 
     res.status(201).json({
       message: isFirstUser
-        ? 'Admin account created. You can log in now.'
-        : 'Registration completed. Please wait for admin approval.',
+        ? '관리자 계정이 생성되었습니다. 바로 로그인할 수 있습니다.'
+        : '회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.',
       user: publicUser(createdRows[0])
     });
   } catch (err) {
     if (connection) {
       await connection.rollback();
     }
-
     await removeUploadedFiles(req.files);
     next(err);
   } finally {
@@ -224,7 +212,7 @@ export const login = async (req, res, next) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ message: 'Please enter username and password.' });
+      return res.status(400).json({ message: '아이디와 비밀번호를 입력해주세요.' });
     }
 
     const [users] = await pool.query(
@@ -233,28 +221,24 @@ export const login = async (req, res, next) => {
     );
 
     if (users.length === 0) {
-      return res.status(401).json({ message: 'Username or password is incorrect.' });
+      return res.status(401).json({ message: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
 
     const user = users[0];
 
     if (user.role !== 'admin' && user.approval_status !== 'approved') {
-      return res.status(403).json({
-        message: 'Your account is waiting for admin approval.'
-      });
+      return res.status(403).json({ message: '관리자 승인 대기 중인 계정입니다.' });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Username or password is incorrect.' });
+      return res.status(401).json({ message: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
 
-    const token = signToken(user);
-
     res.json({
-      message: 'Logged in.',
-      token,
+      message: '로그인되었습니다.',
+      token: signToken(user),
       user: publicUser(user)
     });
   } catch (err) {
@@ -279,10 +263,7 @@ export const findUsername = async (req, res, next) => {
       return res.status(404).json({ message: '일치하는 계정을 찾을 수 없습니다.' });
     }
 
-    res.json({
-      message: '아이디를 찾았습니다.',
-      username: maskUsername(users[0].username)
-    });
+    res.json({ message: '아이디를 찾았습니다.', username: maskUsername(users[0].username) });
   } catch (err) {
     next(err);
   }
@@ -340,7 +321,7 @@ export const requestPasswordReset = async (req, res, next) => {
 };
 
 export const logout = (req, res) => {
-  res.json({ message: 'Logged out.' });
+  res.json({ message: '로그아웃되었습니다.' });
 };
 
 export const me = async (req, res, next) => {
@@ -351,7 +332,7 @@ export const me = async (req, res, next) => {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({ message: 'User was not found.' });
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
     }
 
     res.json({ user: publicUser(users[0]) });
@@ -378,7 +359,7 @@ export const updateProfile = async (req, res, next) => {
     );
 
     if (users.length === 0) {
-      return res.status(404).json({ message: 'User was not found.' });
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
     }
 
     const [duplicates] = await pool.query(
@@ -390,7 +371,6 @@ export const updateProfile = async (req, res, next) => {
       return res.status(409).json({ message: '이미 사용 중인 이메일입니다.' });
     }
 
-    const user = users[0];
     const values = [name, email];
     let passwordSql = '';
 
@@ -399,33 +379,58 @@ export const updateProfile = async (req, res, next) => {
         return res.status(400).json({ message: '현재 비밀번호를 입력해주세요.' });
       }
 
-      const isPasswordValid = await bcrypt.compare(current_password, user.password);
+      const isPasswordValid = await bcrypt.compare(current_password, users[0].password);
 
       if (!isPasswordValid) {
         return res.status(401).json({ message: '현재 비밀번호가 올바르지 않습니다.' });
       }
 
-      const hashedPassword = await bcrypt.hash(new_password, 12);
       passwordSql = ', password = ?';
-      values.push(hashedPassword);
+      values.push(await bcrypt.hash(new_password, 12));
     }
 
     values.push(req.user.id);
-
-    await pool.query(
-      `UPDATE users SET name = ?, email = ?${passwordSql} WHERE id = ?`,
-      values
-    );
+    await pool.query(`UPDATE users SET name = ?, email = ?${passwordSql} WHERE id = ?`, values);
 
     const [updatedRows] = await pool.query(
       'SELECT id, username, name, email, role, approval_status, face_photo_path, created_at FROM users WHERE id = ? LIMIT 1',
       [req.user.id]
     );
 
-    res.json({
-      message: '개인정보가 수정되었습니다.',
-      user: publicUser(updatedRows[0])
-    });
+    res.json({ message: '개인정보가 수정되었습니다.', user: publicUser(updatedRows[0]) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteMe = async (req, res, next) => {
+  try {
+    const [users] = await pool.query('SELECT id, role FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    if (users[0].role === 'admin') {
+      return res.status(400).json({ message: '관리자 계정은 직접 탈퇴할 수 없습니다. 다른 관리자에게 권한 변경을 요청하세요.' });
+    }
+
+    const deletedUsername = `deleted_${req.user.id}_${Date.now()}`;
+
+    await pool.query(
+      `UPDATE users
+       SET username = ?, name = '탈퇴회원', email = ?, approval_status = 'rejected',
+           face_photo_path = NULL, email_marketing_consent = 0, sns_marketing_consent = 0
+       WHERE id = ?`,
+      [deletedUsername, `${deletedUsername}@deleted.local`, req.user.id]
+    );
+
+    await pool.query('DELETE FROM shipping_addresses WHERE user_id = ?', [req.user.id]);
+    await pool.query('DELETE FROM wishlist_items WHERE user_id = ?', [req.user.id]);
+    await pool.query('DELETE FROM recently_viewed_products WHERE user_id = ?', [req.user.id]);
+    await pool.query('DELETE FROM notifications WHERE user_id = ?', [req.user.id]);
+
+    res.json({ message: '회원 탈퇴가 처리되었습니다.' });
   } catch (err) {
     next(err);
   }

@@ -1,4 +1,5 @@
 import { pool } from '../config/db.js';
+import { logAdminActivity } from './adminController.js';
 import { createNotification, getCouponDiscount } from './shopFeatureController.js';
 
 const publicOrderSql = `
@@ -297,8 +298,16 @@ export const getOrder = async (req, res, next) => {
       'SELECT id, product_id, option_id, product_name, option_summary, quantity, unit_price, line_total FROM order_items WHERE order_id = ?',
       [req.params.id]
     );
+    const [refunds] = await pool.query(
+      `SELECT id, reason, detail, status, admin_note, reviewed_at, created_at
+       FROM refund_requests
+       WHERE order_id = ?
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [req.params.id]
+    );
 
-    res.json({ order: orders[0], items });
+    res.json({ order: orders[0], items, refund_request: refunds[0] || null });
   } catch (err) {
     next(err);
   }
@@ -366,12 +375,149 @@ export const cancelOrder = async (req, res, next) => {
   }
 };
 
+export const createRefundRequest = async (req, res, next) => {
+  try {
+    const { reason, detail = '' } = req.body;
+
+    if (!reason || String(reason).trim().length < 3) {
+      return res.status(400).json({ message: '환불 사유를 입력해주세요.' });
+    }
+
+    const [orders] = await pool.query(
+      'SELECT id, user_id, order_number, status FROM orders WHERE id = ? AND user_id = ? LIMIT 1',
+      [req.params.id, req.user.id]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: '주문을 찾을 수 없습니다.' });
+    }
+
+    if (!['paid', 'preparing', 'shipping', 'delivered'].includes(orders[0].status)) {
+      return res.status(400).json({ message: '현재 상태에서는 환불 요청을 할 수 없습니다.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO refund_requests (order_id, user_id, reason, detail)
+       VALUES (?, ?, ?, ?)`,
+      [orders[0].id, req.user.id, String(reason).trim(), String(detail || '').trim()]
+    );
+
+    res.status(201).json({ message: '환불 요청이 접수되었습니다.', refund_id: result.insertId });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: '이미 환불 요청이 접수된 주문입니다.' });
+    }
+    next(err);
+  }
+};
+
 export const listAllOrders = async (req, res, next) => {
   try {
     const [orders] = await pool.query(`${publicOrderSql} ORDER BY created_at DESC`);
     res.json({ orders });
   } catch (err) {
     next(err);
+  }
+};
+
+export const listRefundRequests = async (req, res, next) => {
+  try {
+    const [refunds] = await pool.query(
+      `SELECT r.id, r.order_id, r.user_id, r.reason, r.detail, r.status, r.admin_note,
+              r.reviewed_at, r.created_at, o.order_number, o.total_amount, o.status AS order_status,
+              u.name AS customer_name, u.email AS customer_email
+       FROM refund_requests r
+       JOIN orders o ON o.id = r.order_id
+       JOIN users u ON u.id = r.user_id
+       ORDER BY
+         CASE r.status WHEN 'requested' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+         r.created_at DESC`
+    );
+
+    res.json({ refunds });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const reviewRefundRequest = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const allowed = ['approved', 'rejected'];
+    const { status, admin_note = '' } = req.body;
+
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ message: '환불 처리 상태가 올바르지 않습니다.' });
+    }
+
+    await connection.beginTransaction();
+
+    const [refunds] = await connection.query(
+      `SELECT r.id, r.order_id, r.user_id, r.status, o.order_number
+       FROM refund_requests r
+       JOIN orders o ON o.id = r.order_id
+       WHERE r.id = ?
+       LIMIT 1 FOR UPDATE`,
+      [req.params.refundId]
+    );
+
+    if (refunds.length === 0) {
+      throw new Error('환불 요청을 찾을 수 없습니다.');
+    }
+
+    if (refunds[0].status !== 'requested') {
+      throw new Error('이미 처리된 환불 요청입니다.');
+    }
+
+    await connection.query(
+      `UPDATE refund_requests
+       SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [status, String(admin_note || '').trim(), req.user.id, req.params.refundId]
+    );
+
+    if (status === 'approved') {
+      await connection.query("UPDATE orders SET status = 'cancelled' WHERE id = ?", [refunds[0].order_id]);
+      const [items] = await connection.query(
+        'SELECT product_id, option_id, quantity FROM order_items WHERE order_id = ?',
+        [refunds[0].order_id]
+      );
+
+      for (const item of items) {
+        if (item.product_id) {
+          await connection.query('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
+        }
+        if (item.option_id) {
+          await connection.query('UPDATE product_options SET stock = stock + ? WHERE id = ?', [item.quantity, item.option_id]);
+        }
+      }
+    }
+
+    await createNotification(
+      connection,
+      refunds[0].user_id,
+      'refund',
+      status === 'approved' ? '환불 요청이 승인되었습니다.' : '환불 요청이 거절되었습니다.',
+      `${refunds[0].order_number} 주문의 환불 요청 처리 결과를 확인해주세요.`,
+      `/orders/${refunds[0].order_id}`
+    );
+    await logAdminActivity(
+      connection,
+      req.user.id,
+      'refund.review',
+      'refund_request',
+      req.params.refundId,
+      `status=${status}`
+    );
+
+    await connection.commit();
+    res.json({ message: '환불 요청이 처리되었습니다.' });
+  } catch (err) {
+    await connection.rollback();
+    res.status(400).json({ message: err.message || '환불 요청 처리에 실패했습니다.' });
+  } finally {
+    connection.release();
   }
 };
 

@@ -1,8 +1,24 @@
 import { pool } from '../config/db.js';
 import { listAllReviews, updateReviewVisibility } from './reviewController.js';
 
+export const logAdminActivity = async (
+  db,
+  adminId,
+  action,
+  targetType = null,
+  targetId = null,
+  detail = null
+) => {
+  await db.query(
+    `INSERT INTO admin_activity_logs (admin_id, action, target_type, target_id, detail)
+     VALUES (?, ?, ?, ?, ?)`,
+    [adminId || null, action, targetType, targetId || null, detail || null]
+  );
+};
+
 export const getDashboard = async (req, res, next) => {
   try {
+    const days = Math.min(90, Math.max(1, Number(req.query.days || 7)));
     const [
       [[users]],
       [[products]],
@@ -24,9 +40,9 @@ export const getDashboard = async (req, res, next) => {
           COALESCE(SUM(approval_status = 'approved'), 0) AS approved_users,
           COALESCE(SUM(role = 'admin'), 0) AS admin_users,
           COALESCE(SUM(DATE(created_at) = CURRENT_DATE()), 0) AS today_users,
-          COALESCE(SUM(created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)), 0) AS week_users
+          COALESCE(SUM(created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL ? DAY)), 0) AS week_users
         FROM users
-      `),
+      `, [days - 1]),
       pool.query(`
         SELECT
           COUNT(*) AS total_products,
@@ -41,9 +57,9 @@ export const getDashboard = async (req, res, next) => {
           COUNT(*) AS total_orders,
           COALESCE(SUM(CASE WHEN status <> 'cancelled' THEN total_amount ELSE 0 END), 0) AS total_sales,
           COALESCE(SUM(CASE WHEN DATE(created_at) = CURRENT_DATE() THEN 1 ELSE 0 END), 0) AS today_orders,
-          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END), 0) AS week_orders,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL ? DAY) THEN 1 ELSE 0 END), 0) AS week_orders,
           COALESCE(SUM(CASE WHEN status <> 'cancelled' AND DATE(created_at) = CURRENT_DATE() THEN total_amount ELSE 0 END), 0) AS today_sales,
-          COALESCE(SUM(CASE WHEN status <> 'cancelled' AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) THEN total_amount ELSE 0 END), 0) AS week_sales,
+          COALESCE(SUM(CASE WHEN status <> 'cancelled' AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL ? DAY) THEN total_amount ELSE 0 END), 0) AS week_sales,
           COALESCE(AVG(CASE WHEN status <> 'cancelled' THEN total_amount END), 0) AS average_order_amount,
           COALESCE(SUM(status = 'paid'), 0) AS paid_orders,
           COALESCE(SUM(status = 'preparing'), 0) AS preparing_orders,
@@ -51,7 +67,7 @@ export const getDashboard = async (req, res, next) => {
           COALESCE(SUM(status = 'delivered'), 0) AS delivered_orders,
           COALESCE(SUM(status = 'cancelled'), 0) AS cancelled_orders
         FROM orders
-      `),
+      `, [days - 1, days - 1]),
       pool.query(`
         SELECT
           COUNT(*) AS total_reviews,
@@ -90,10 +106,10 @@ export const getDashboard = async (req, res, next) => {
           COUNT(*) AS orders,
           COALESCE(SUM(CASE WHEN status <> 'cancelled' THEN total_amount ELSE 0 END), 0) AS sales
         FROM orders
-        WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 DAY)
+        WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL ? DAY)
         GROUP BY DATE(created_at)
         ORDER BY sales_date ASC
-      `),
+      `, [days - 1]),
       pool.query(`
         SELECT
           p.id,
@@ -164,6 +180,57 @@ export const getDashboard = async (req, res, next) => {
   }
 };
 
+export const exportDashboardCsv = async (req, res, next) => {
+  try {
+    const days = Math.min(90, Math.max(1, Number(req.query.days || 30)));
+    const [rows] = await pool.query(
+      `SELECT
+         DATE(created_at) AS date,
+         COUNT(*) AS orders,
+         COALESCE(SUM(CASE WHEN status <> 'cancelled' THEN total_amount ELSE 0 END), 0) AS sales,
+         COALESCE(SUM(status = 'cancelled'), 0) AS cancelled_orders
+       FROM orders
+       WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL ? DAY)
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+      [days - 1]
+    );
+
+    const csv = [
+      'date,orders,sales,cancelled_orders',
+      ...rows.map((row) => [
+        new Date(row.date).toISOString().slice(0, 10),
+        row.orders,
+        row.sales,
+        row.cancelled_orders
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="homeshop-dashboard-${days}days.csv"`);
+    res.send(`\uFEFF${csv}`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listActivityLogs = async (req, res, next) => {
+  try {
+    const [logs] = await pool.query(
+      `SELECT l.id, l.action, l.target_type, l.target_id, l.detail, l.created_at,
+              u.name AS admin_name, u.username AS admin_username
+       FROM admin_activity_logs l
+       LEFT JOIN users u ON u.id = l.admin_id
+       ORDER BY l.created_at DESC
+       LIMIT 80`
+    );
+
+    res.json({ logs });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const listUsers = async (req, res, next) => {
   try {
     const [users] = await pool.query(
@@ -224,6 +291,14 @@ export const updateUserApproval = async (req, res, next) => {
       approval_status,
       req.params.id
     ]);
+    await logAdminActivity(
+      pool,
+      req.user.id,
+      'user.approval.update',
+      'user',
+      req.params.id,
+      `approval_status=${approval_status}`
+    );
 
     res.json({ message: 'User approval status updated.' });
   } catch (err) {
@@ -244,6 +319,7 @@ export const updateUserRole = async (req, res, next) => {
       "UPDATE users SET role = ?, approval_status = CASE WHEN ? = 'admin' THEN 'approved' ELSE approval_status END WHERE id = ?",
       [role, role, req.params.id]
     );
+    await logAdminActivity(pool, req.user.id, 'user.role.update', 'user', req.params.id, `role=${role}`);
 
     res.json({ message: 'User role updated.' });
   } catch (err) {

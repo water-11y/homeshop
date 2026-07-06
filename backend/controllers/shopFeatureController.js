@@ -1,4 +1,5 @@
 import { pool } from '../config/db.js';
+import { logAdminActivity } from './adminController.js';
 
 const normalizeOptionalNumber = (value) => {
   if (value === undefined || value === null || value === '') return null;
@@ -523,6 +524,183 @@ export const markAllNotificationsRead = async (req, res, next) => {
     res.json({ message: '모든 알림을 읽음 처리했습니다.' });
   } catch (err) {
     next(err);
+  }
+};
+
+export const listNotices = async (req, res, next) => {
+  try {
+    const [notices] = await pool.query(
+      `SELECT id, title, content, created_at, updated_at
+       FROM notices
+       WHERE is_published = 1
+       ORDER BY created_at DESC`
+    );
+    res.json({ notices });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listFaqs = async (req, res, next) => {
+  try {
+    const [faqs] = await pool.query(
+      `SELECT id, category, question, answer
+       FROM faqs
+       WHERE is_published = 1
+       ORDER BY sort_order ASC, id ASC`
+    );
+    res.json({ faqs });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getLegalPage = async (req, res, next) => {
+  try {
+    const [pages] = await pool.query(
+      'SELECT slug, title, content, updated_at FROM legal_pages WHERE slug = ? LIMIT 1',
+      [req.params.slug]
+    );
+
+    if (pages.length === 0) {
+      return res.status(404).json({ message: '문서를 찾을 수 없습니다.' });
+    }
+
+    res.json({ page: pages[0] });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listAdminNotices = async (req, res, next) => {
+  try {
+    const [notices] = await pool.query(
+      `SELECT id, title, content, is_published, created_at, updated_at
+       FROM notices
+       ORDER BY created_at DESC`
+    );
+    res.json({ notices });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const saveNotice = async (req, res, next) => {
+  try {
+    const { title, content, is_published = true } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ message: '공지 제목과 내용을 입력해주세요.' });
+    }
+
+    if (req.params.noticeId) {
+      await pool.query(
+        'UPDATE notices SET title = ?, content = ?, is_published = ? WHERE id = ?',
+        [title, content, is_published ? 1 : 0, req.params.noticeId]
+      );
+      await logAdminActivity(pool, req.user.id, 'notice.update', 'notice', req.params.noticeId, title);
+      return res.json({ message: '공지사항이 수정되었습니다.' });
+    }
+
+    const [result] = await pool.query(
+      'INSERT INTO notices (title, content, is_published, created_by) VALUES (?, ?, ?, ?)',
+      [title, content, is_published ? 1 : 0, req.user.id]
+    );
+    await logAdminActivity(pool, req.user.id, 'notice.create', 'notice', result.insertId, title);
+    res.status(201).json({ message: '공지사항이 등록되었습니다.', id: result.insertId });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listAdminFaqs = async (req, res, next) => {
+  try {
+    const [faqs] = await pool.query(
+      `SELECT id, category, question, answer, sort_order, is_published
+       FROM faqs
+       ORDER BY sort_order ASC, id ASC`
+    );
+    res.json({ faqs });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const saveFaq = async (req, res, next) => {
+  try {
+    const { category = 'general', question, answer, sort_order = 0, is_published = true } = req.body;
+
+    if (!question || !answer) {
+      return res.status(400).json({ message: 'FAQ 질문과 답변을 입력해주세요.' });
+    }
+
+    if (req.params.faqId) {
+      await pool.query(
+        'UPDATE faqs SET category = ?, question = ?, answer = ?, sort_order = ?, is_published = ? WHERE id = ?',
+        [category, question, answer, Number(sort_order || 0), is_published ? 1 : 0, req.params.faqId]
+      );
+      await logAdminActivity(pool, req.user.id, 'faq.update', 'faq', req.params.faqId, question);
+      return res.json({ message: 'FAQ가 수정되었습니다.' });
+    }
+
+    const [result] = await pool.query(
+      'INSERT INTO faqs (category, question, answer, sort_order, is_published) VALUES (?, ?, ?, ?, ?)',
+      [category, question, answer, Number(sort_order || 0), is_published ? 1 : 0]
+    );
+    await logAdminActivity(pool, req.user.id, 'faq.create', 'faq', result.insertId, question);
+    res.status(201).json({ message: 'FAQ가 등록되었습니다.', id: result.insertId });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateLegalPage = async (req, res, next) => {
+  try {
+    const { title, content } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ message: '문서 제목과 내용을 입력해주세요.' });
+    }
+
+    await pool.query(
+      `INSERT INTO legal_pages (slug, title, content)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content)`,
+      [req.params.slug, title, content]
+    );
+    await logAdminActivity(pool, req.user.id, 'legal.update', 'legal_page', null, req.params.slug);
+    res.json({ message: '문서가 저장되었습니다.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const broadcastNotification = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { title, message, link_url = '/notifications', type = 'notice' } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ message: '알림 제목과 내용을 입력해주세요.' });
+    }
+
+    await connection.beginTransaction();
+    const [users] = await connection.query("SELECT id FROM users WHERE approval_status = 'approved'");
+
+    for (const user of users) {
+      await createNotification(connection, user.id, type, title, message, link_url);
+    }
+
+    await logAdminActivity(connection, req.user.id, 'notification.broadcast', 'notification', null, title);
+    await connection.commit();
+
+    res.status(201).json({ message: '전체 알림이 발송되었습니다.', sent_count: users.length });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
   }
 };
 

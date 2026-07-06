@@ -2,8 +2,11 @@ import { Router } from 'express';
 import {
   createAddress,
   deleteAddress,
+  getLegalPage,
+  listFaqs,
   listAddresses,
   listCoupons,
+  listNotices,
   listNotifications,
   listRecentlyViewed,
   listWishlist,
@@ -21,6 +24,9 @@ const router = Router();
 router.get('/wishlist', authMiddleware, listWishlist);
 router.get('/coupons', authMiddleware, listCoupons);
 router.post('/coupons/validate', authMiddleware, validateCoupon);
+router.get('/notices', authMiddleware, listNotices);
+router.get('/faqs', authMiddleware, listFaqs);
+router.get('/legal/:slug', authMiddleware, getLegalPage);
 router.get('/addresses', authMiddleware, listAddresses);
 router.post('/addresses', authMiddleware, createAddress);
 router.put('/addresses/:addressId', authMiddleware, updateAddress);

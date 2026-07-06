@@ -22,6 +22,8 @@ export default function OrderDetail() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [items, setItems] = useState([]);
+  const [refundRequest, setRefundRequest] = useState(null);
+  const [refundForm, setRefundForm] = useState({ reason: '', detail: '' });
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -29,6 +31,7 @@ export default function OrderDetail() {
     const data = await apiRequest(`/orders/${id}`);
     setOrder(data.order);
     setItems(data.items);
+    setRefundRequest(data.refund_request || null);
   };
 
   useEffect(() => {
@@ -46,6 +49,23 @@ export default function OrderDetail() {
     }
   };
 
+  const requestRefund = async (event) => {
+    event.preventDefault();
+    setMessage('');
+
+    try {
+      await apiRequest(`/orders/${id}/refund-request`, {
+        method: 'POST',
+        body: JSON.stringify(refundForm)
+      });
+      setRefundForm({ reason: '', detail: '' });
+      await loadOrder();
+      setMessage('환불 요청이 접수되었습니다.');
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
   if (loading) {
     return <main className="page"><p className="muted">Loading order...</p></main>;
   }
@@ -55,6 +75,7 @@ export default function OrderDetail() {
   }
 
   const canCancel = ['paid', 'preparing'].includes(order.status);
+  const canRequestRefund = !refundRequest && ['paid', 'preparing', 'shipping', 'delivered'].includes(order.status);
   const currentStep = statusIndex[order.status] ?? -1;
   const trackingNumber = `HS-${String(order.order_number).replace(/[^A-Z0-9]/g, '').slice(-10)}`;
 
@@ -68,7 +89,7 @@ export default function OrderDetail() {
         <Link className="button subtle" to="/orders">Back</Link>
       </section>
 
-      {message && <p className={message.includes('cancelled') ? 'success' : 'error'}>{message}</p>}
+      {message && <p className={message.includes('cancelled') || message.includes('접수') ? 'success' : 'error'}>{message}</p>}
 
       <section className="checkout-layout">
         <div className="form-card wide">
@@ -111,6 +132,42 @@ export default function OrderDetail() {
               <XCircle size={18} aria-hidden="true" />
               Cancel Order
             </button>
+          )}
+
+          {refundRequest && (
+            <section className="refund-status-box">
+              <span className={`status-pill ${refundRequest.status === 'requested' ? 'pending' : refundRequest.status === 'approved' ? 'approved' : 'rejected'}`}>
+                {refundRequest.status === 'requested' ? '환불 검토 중' : refundRequest.status === 'approved' ? '환불 승인' : '환불 거절'}
+              </span>
+              <h3>환불 요청 내역</h3>
+              <p><strong>사유:</strong> {refundRequest.reason}</p>
+              {refundRequest.detail && <p className="muted">{refundRequest.detail}</p>}
+              {refundRequest.admin_note && <p><strong>관리자 메모:</strong> {refundRequest.admin_note}</p>}
+            </section>
+          )}
+
+          {canRequestRefund && (
+            <form className="refund-request-form" onSubmit={requestRefund}>
+              <h3>환불 요청</h3>
+              <label>
+                환불 사유
+                <input
+                  value={refundForm.reason}
+                  onChange={(event) => setRefundForm((current) => ({ ...current, reason: event.target.value }))}
+                  placeholder="예: 단순 변심, 상품 문제, 배송 문제"
+                  required
+                />
+              </label>
+              <label>
+                상세 내용
+                <textarea
+                  value={refundForm.detail}
+                  onChange={(event) => setRefundForm((current) => ({ ...current, detail: event.target.value }))}
+                  placeholder="관리자가 확인할 수 있도록 내용을 적어주세요."
+                />
+              </label>
+              <button className="button subtle" type="submit">환불 요청 접수</button>
+            </form>
           )}
         </div>
 

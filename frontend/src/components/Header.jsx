@@ -1,5 +1,6 @@
 import {
   Bell,
+  HelpCircle,
   Heart,
   LogOut,
   Menu,
@@ -61,6 +62,10 @@ export default function Header() {
           <Bell size={18} aria-hidden="true" />
           <span>Alerts</span>
           {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+        </NavLink>
+        <NavLink to="/support" className="icon-link support-link">
+          <HelpCircle size={18} aria-hidden="true" />
+          <span>Support</span>
         </NavLink>
 
         {user?.role === 'admin' && (

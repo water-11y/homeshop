@@ -1,11 +1,11 @@
-import { Save, ShieldCheck } from 'lucide-react';
+import { Save, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function ProfileEdit() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -15,7 +15,9 @@ export default function ProfileEdit() {
     new_password_confirm: ''
   });
   const [message, setMessage] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setForm((current) => ({
@@ -23,7 +25,7 @@ export default function ProfileEdit() {
       name: user?.name || '',
       email: user?.email || ''
     }));
-  }, [user?.id]);
+  }, [user?.id, user?.name, user?.email]);
 
   const handleChange = (event) => {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -62,6 +64,27 @@ export default function ProfileEdit() {
       setMessage(err.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setMessage('');
+
+    if (deleteConfirm !== user?.username) {
+      setMessage(`탈퇴하려면 아이디 "${user?.username}"를 정확히 입력해주세요.`);
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      await apiRequest('/auth/me', { method: 'DELETE' });
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -123,9 +146,25 @@ export default function ProfileEdit() {
             마이페이지로 돌아가기
           </button>
         </form>
-        <p className="form-footnote">
-          아이디는 보안상 직접 변경하지 않습니다. 변경이 필요하면 관리자에게 문의하세요.
-        </p>
+
+        <section className="danger-zone">
+          <div>
+            <strong>회원 탈퇴</strong>
+            <p>탈퇴하면 계정이 비활성화되고 배송지, 찜, 알림 정보가 삭제됩니다. 주문 기록은 정산 기록 보관을 위해 남습니다.</p>
+          </div>
+          <label>
+            탈퇴 확인 아이디
+            <input
+              value={deleteConfirm}
+              onChange={(event) => setDeleteConfirm(event.target.value)}
+              placeholder={user?.username || '아이디 입력'}
+            />
+          </label>
+          <button className="button danger full" disabled={deleting} type="button" onClick={handleDeleteAccount}>
+            <Trash2 size={18} aria-hidden="true" />
+            {deleting ? '탈퇴 처리 중...' : '회원 탈퇴'}
+          </button>
+        </section>
       </section>
     </main>
   );

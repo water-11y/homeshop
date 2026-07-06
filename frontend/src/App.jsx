@@ -2,16 +2,20 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import Header from './components/Header.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import AdminCoupons from './pages/AdminCoupons.jsx';
+import AdminActivityLogs from './pages/AdminActivityLogs.jsx';
+import AdminContent from './pages/AdminContent.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminProducts from './pages/AdminProducts.jsx';
 import AdminOrders from './pages/AdminOrders.jsx';
 import AdminQuestions from './pages/AdminQuestions.jsx';
 import AdminReviews from './pages/AdminReviews.jsx';
+import AdminRefunds from './pages/AdminRefunds.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AddressBook from './pages/AddressBook.jsx';
 import Cart from './pages/Cart.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Login from './pages/Login.jsx';
+import LegalPage from './pages/LegalPage.jsx';
 import MyOrders from './pages/MyOrders.jsx';
 import MyPage from './pages/MyPage.jsx';
 import Notifications from './pages/Notifications.jsx';
@@ -20,6 +24,7 @@ import ProductDetail from './pages/ProductDetail.jsx';
 import ProfileEdit from './pages/ProfileEdit.jsx';
 import Products from './pages/Products.jsx';
 import Register from './pages/Register.jsx';
+import Support from './pages/Support.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 
 function PublicRoute({ children }) {
@@ -140,6 +145,22 @@ export default function App() {
           }
         />
         <Route
+          path="/support"
+          element={
+            <PrivateRoute>
+              <Support />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/legal/:slug"
+          element={
+            <PrivateRoute>
+              <LegalPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/orders"
           element={
             <PrivateRoute>
@@ -204,6 +225,14 @@ export default function App() {
           }
         />
         <Route
+          path="/admin/refunds"
+          element={
+            <AdminRoute>
+              <AdminRefunds />
+            </AdminRoute>
+          }
+        />
+        <Route
           path="/admin/questions"
           element={
             <AdminRoute>
@@ -224,6 +253,22 @@ export default function App() {
           element={
             <AdminRoute>
               <AdminReviews />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/content"
+          element={
+            <AdminRoute>
+              <AdminContent />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/activity-logs"
+          element={
+            <AdminRoute>
+              <AdminActivityLogs />
             </AdminRoute>
           }
         />

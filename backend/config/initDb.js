@@ -318,6 +318,97 @@ export const ensureDatabase = async () => {
     UNION ALL SELECT 8, p.id, 'Type', 'Premium Kit', 18000, 9 FROM products p WHERE p.id = 4
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS refund_requests (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      user_id INT NOT NULL,
+      reason VARCHAR(255) NOT NULL,
+      detail TEXT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'requested',
+      admin_note VARCHAR(255) NULL,
+      reviewed_by INT NULL,
+      reviewed_at TIMESTAMP NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_refund_order (order_id),
+      CONSTRAINT fk_refunds_order FOREIGN KEY (order_id) REFERENCES orders(id),
+      CONSTRAINT fk_refunds_user FOREIGN KEY (user_id) REFERENCES users(id),
+      CONSTRAINT fk_refunds_admin FOREIGN KEY (reviewed_by) REFERENCES users(id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notices (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(160) NOT NULL,
+      content TEXT NOT NULL,
+      is_published TINYINT(1) NOT NULL DEFAULT 1,
+      created_by INT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_notices_admin FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS faqs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      category VARCHAR(60) NOT NULL DEFAULT 'general',
+      question VARCHAR(180) NOT NULL,
+      answer TEXT NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      is_published TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS legal_pages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      slug VARCHAR(60) NOT NULL UNIQUE,
+      title VARCHAR(120) NOT NULL,
+      content TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_activity_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      admin_id INT NULL,
+      action VARCHAR(80) NOT NULL,
+      target_type VARCHAR(60) NULL,
+      target_id INT NULL,
+      detail VARCHAR(255) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_activity_admin FOREIGN KEY (admin_id) REFERENCES users(id)
+    )
+  `);
+
+  await pool.query(`
+    INSERT IGNORE INTO notices (id, title, content, is_published)
+    VALUES
+      (1, 'HomeShop 이용 안내', '주문, 배송, 쿠폰, 문의 기능을 HomeShop에서 사용할 수 있습니다.', 1),
+      (2, '배송 상태 안내', '주문 상세 화면에서 결제 완료, 상품 준비, 배송 중, 배송 완료 상태를 확인할 수 있습니다.', 1)
+  `);
+
+  await pool.query(`
+    INSERT IGNORE INTO faqs (id, category, question, answer, sort_order, is_published)
+    VALUES
+      (1, 'order', '주문 취소는 어디에서 하나요?', '주문 상세 화면에서 결제 완료 또는 상품 준비 상태일 때 주문 취소를 요청할 수 있습니다.', 1, 1),
+      (2, 'delivery', '배송 상태는 어디에서 확인하나요?', '마이페이지의 주문내역 또는 주문 상세 화면에서 배송 진행 상태를 확인할 수 있습니다.', 2, 1),
+      (3, 'account', '회원정보는 어디에서 수정하나요?', '마이페이지의 개인정보 수정 메뉴에서 이름, 이메일, 비밀번호를 변경할 수 있습니다.', 3, 1)
+  `);
+
+  await pool.query(`
+    INSERT IGNORE INTO legal_pages (slug, title, content)
+    VALUES
+      ('terms', '이용약관', 'HomeShop 이용약관 예시입니다. 실제 운영 전 사업 정책에 맞게 내용을 검토하고 수정하세요.'),
+      ('privacy', '개인정보처리방침', 'HomeShop 개인정보처리방침 예시입니다. 수집 항목, 보관 기간, 제3자 제공 여부를 실제 운영 정책에 맞게 수정하세요.')
+  `);
+
   const alterIfMissing = async (sql) => {
     try {
       await pool.query(sql);

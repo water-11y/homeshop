@@ -6,6 +6,7 @@ import {
   me,
   register,
   requestPasswordReset,
+  deleteMe,
   updateProfile
 } from '../controllers/authController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
@@ -28,5 +29,6 @@ router.post('/find-username', findUsername);
 router.post('/password-reset', requestPasswordReset);
 router.get('/me', authMiddleware, me);
 router.put('/me', authMiddleware, updateProfile);
+router.delete('/me', authMiddleware, deleteMe);
 
 export default router;
