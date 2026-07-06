@@ -3,39 +3,145 @@ import { listAllReviews, updateReviewVisibility } from './reviewController.js';
 
 export const getDashboard = async (req, res, next) => {
   try {
-    const [[users]] = await pool.query(`
-      SELECT
-        COUNT(*) AS total_users,
-        SUM(approval_status = 'pending') AS pending_users
-      FROM users
-    `);
-    const [[products]] = await pool.query(`
-      SELECT
-        COUNT(*) AS total_products,
-        SUM(stock <= 5) AS low_stock_products
-      FROM products
-      WHERE is_active = 1
-    `);
-    const [[orders]] = await pool.query(`
-      SELECT
-        COUNT(*) AS total_orders,
-        COALESCE(SUM(total_amount), 0) AS total_sales,
-        SUM(status = 'paid') AS paid_orders,
-        SUM(status = 'shipping') AS shipping_orders,
-        SUM(status = 'cancelled') AS cancelled_orders
-      FROM orders
-    `);
-    const [[reviews]] = await pool.query(`
-      SELECT COUNT(*) AS total_reviews, COALESCE(AVG(rating), 0) AS average_rating
-      FROM reviews
-      WHERE is_visible = 1
-    `);
-    const [[questions]] = await pool.query(`
-      SELECT
-        COUNT(*) AS total_questions,
-        SUM(answer IS NULL) AS unanswered_questions
-      FROM product_questions
-    `);
+    const [
+      [[users]],
+      [[products]],
+      [[orders]],
+      [[reviews]],
+      [[questions]],
+      [[coupons]],
+      [orderStatuses],
+      [dailySales],
+      [topProducts],
+      [lowRatedProducts],
+      [topWishlistProducts],
+      [recentOrders]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_users,
+          COALESCE(SUM(approval_status = 'pending'), 0) AS pending_users,
+          COALESCE(SUM(approval_status = 'approved'), 0) AS approved_users,
+          COALESCE(SUM(role = 'admin'), 0) AS admin_users,
+          COALESCE(SUM(DATE(created_at) = CURRENT_DATE()), 0) AS today_users,
+          COALESCE(SUM(created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)), 0) AS week_users
+        FROM users
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_products,
+          COALESCE(SUM(stock <= 5), 0) AS low_stock_products,
+          COALESCE(SUM(stock <= 0), 0) AS out_of_stock_products,
+          COALESCE(SUM(is_featured = 1), 0) AS featured_products
+        FROM products
+        WHERE is_active = 1
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_orders,
+          COALESCE(SUM(CASE WHEN status <> 'cancelled' THEN total_amount ELSE 0 END), 0) AS total_sales,
+          COALESCE(SUM(CASE WHEN DATE(created_at) = CURRENT_DATE() THEN 1 ELSE 0 END), 0) AS today_orders,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END), 0) AS week_orders,
+          COALESCE(SUM(CASE WHEN status <> 'cancelled' AND DATE(created_at) = CURRENT_DATE() THEN total_amount ELSE 0 END), 0) AS today_sales,
+          COALESCE(SUM(CASE WHEN status <> 'cancelled' AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) THEN total_amount ELSE 0 END), 0) AS week_sales,
+          COALESCE(AVG(CASE WHEN status <> 'cancelled' THEN total_amount END), 0) AS average_order_amount,
+          COALESCE(SUM(status = 'paid'), 0) AS paid_orders,
+          COALESCE(SUM(status = 'preparing'), 0) AS preparing_orders,
+          COALESCE(SUM(status = 'shipping'), 0) AS shipping_orders,
+          COALESCE(SUM(status = 'delivered'), 0) AS delivered_orders,
+          COALESCE(SUM(status = 'cancelled'), 0) AS cancelled_orders
+        FROM orders
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_reviews,
+          COALESCE(AVG(rating), 0) AS average_rating,
+          COALESCE(SUM(DATE(created_at) = CURRENT_DATE()), 0) AS today_reviews,
+          COALESCE(SUM(rating = 5), 0) AS five_star_reviews,
+          COALESCE(SUM(rating <= 2), 0) AS low_rating_reviews
+        FROM reviews
+        WHERE is_visible = 1
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_questions,
+          COALESCE(SUM(answer IS NULL), 0) AS unanswered_questions,
+          COALESCE(SUM(answer IS NOT NULL), 0) AS answered_questions,
+          COALESCE(SUM(is_private = 1), 0) AS private_questions,
+          COALESCE(SUM(DATE(created_at) = CURRENT_DATE()), 0) AS today_questions
+        FROM product_questions
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_coupons,
+          COALESCE(SUM(is_active = 1), 0) AS active_coupons,
+          COALESCE(SUM(ends_at IS NOT NULL AND ends_at < NOW()), 0) AS expired_coupons
+        FROM coupons
+      `),
+      pool.query(`
+        SELECT status, COUNT(*) AS count
+        FROM orders
+        GROUP BY status
+        ORDER BY FIELD(status, 'paid', 'preparing', 'shipping', 'delivered', 'cancelled')
+      `),
+      pool.query(`
+        SELECT
+          DATE(created_at) AS sales_date,
+          COUNT(*) AS orders,
+          COALESCE(SUM(CASE WHEN status <> 'cancelled' THEN total_amount ELSE 0 END), 0) AS sales
+        FROM orders
+        WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY sales_date ASC
+      `),
+      pool.query(`
+        SELECT
+          p.id,
+          p.name,
+          p.category,
+          COALESCE(SUM(oi.quantity), 0) AS sold_quantity,
+          COALESCE(SUM(oi.line_total), 0) AS sales
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        LEFT JOIN products p ON p.id = oi.product_id
+        WHERE o.status <> 'cancelled'
+        GROUP BY p.id, p.name, p.category
+        ORDER BY sold_quantity DESC, sales DESC
+        LIMIT 5
+      `),
+      pool.query(`
+        SELECT id, name, category, rating, review_count, stock
+        FROM products
+        WHERE is_active = 1 AND review_count > 0
+        ORDER BY rating ASC, review_count DESC
+        LIMIT 5
+      `),
+      pool.query(`
+        SELECT
+          p.id,
+          p.name,
+          p.category,
+          COUNT(w.id) AS wishlist_count
+        FROM wishlist_items w
+        JOIN products p ON p.id = w.product_id
+        GROUP BY p.id, p.name, p.category
+        ORDER BY wishlist_count DESC
+        LIMIT 5
+      `),
+      pool.query(`
+        SELECT
+          o.id,
+          o.order_number,
+          o.status,
+          o.total_amount,
+          o.created_at,
+          u.name AS customer_name
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        ORDER BY o.created_at DESC
+        LIMIT 5
+      `)
+    ]);
 
     res.json({
       dashboard: {
@@ -43,7 +149,14 @@ export const getDashboard = async (req, res, next) => {
         products,
         orders,
         reviews,
-        questions
+        questions,
+        coupons,
+        order_statuses: orderStatuses,
+        daily_sales: dailySales,
+        top_products: topProducts,
+        low_rated_products: lowRatedProducts,
+        top_wishlist_products: topWishlistProducts,
+        recent_orders: recentOrders
       }
     });
   } catch (err) {

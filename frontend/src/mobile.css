@@ -541,6 +541,7 @@
   .profile-list,
   .form-grid,
   .dashboard-grid,
+  .admin-analytics-layout,
   .question-admin-row,
   .coupon-admin-row,
   .benefit-grid,
@@ -594,6 +595,44 @@
 
   .row-actions .button {
     width: 100%;
+  }
+
+  .analytics-panel.wide {
+    grid-column: auto;
+  }
+
+  .analytics-panel {
+    padding: 16px;
+  }
+
+  .panel-head h2 {
+    font-size: 18px;
+  }
+
+  .sales-bar-row {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .sales-bar-row strong {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .rank-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .rank-row em {
+    grid-column: 2;
+  }
+
+  .recent-order-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .recent-order-row em {
+    justify-self: start;
   }
 }
 
