@@ -1,13 +1,13 @@
-import { Heart, MessageCircle, Minus, Plus, ShoppingCart, Star, Trash2 } from 'lucide-react';
+import { Heart, Minus, Plus, ShoppingCart, Star, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiRequest } from '../api/client.js';
+import KakaoConsultButton from '../components/KakaoConsultButton.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatPrice } from '../utils/format.js';
 
 const emptyReview = { rating: 5, title: '', content: '' };
-const kakaoOpenChatUrl = import.meta.env.VITE_KAKAO_OPENCHAT_URL;
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -86,17 +86,6 @@ export default function ProductDetail() {
   const handleAddCart = () => {
     addItem(product, quantity, selectedOption);
     setMessage('Added to cart.');
-  };
-
-  const openKakaoConsult = () => {
-    setMessage('');
-
-    if (!kakaoOpenChatUrl) {
-      setMessage('카카오톡 오픈채팅 URL이 아직 설정되지 않았습니다.');
-      return;
-    }
-
-    window.open(kakaoOpenChatUrl, '_blank', 'noopener,noreferrer');
   };
 
   const toggleWishlist = async () => {
@@ -235,10 +224,7 @@ export default function ProductDetail() {
               <Heart size={18} aria-hidden="true" />
               Wishlist
             </button>
-            <button className="button kakao-consult" type="button" onClick={openKakaoConsult}>
-              <MessageCircle size={18} aria-hidden="true" />
-              카카오톡 상담하기
-            </button>
+            <KakaoConsultButton />
             <Link className="button subtle" to="/cart">View Cart</Link>
           </div>
         </div>

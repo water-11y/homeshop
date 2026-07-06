@@ -278,6 +278,29 @@
     padding: 0 14px;
   }
 
+  .kakao-consult-wrap {
+    width: 100%;
+  }
+
+  .kakao-consult-wrap.floating {
+    right: 14px;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    width: auto;
+  }
+
+  .kakao-floating-consult {
+    min-height: 46px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    box-shadow: 0 12px 24px rgba(27, 45, 66, 0.18);
+  }
+
+  .kakao-consult-notice {
+    max-width: min(260px, calc(100vw - 28px));
+    font-size: 12px;
+  }
+
   .actions {
     display: grid;
     grid-template-columns: 1fr;

@@ -2,6 +2,7 @@ import { ArrowRight, BadgePercent, Truck, Tv } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiRequest } from '../api/client.js';
+import KakaoConsultButton from '../components/KakaoConsultButton.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { formatPrice } from '../utils/format.js';
 
@@ -93,6 +94,7 @@ export default function Home() {
           ))}
         </div>
       )}
+      <KakaoConsultButton variant="floating" label="카톡 상담" />
     </main>
   );
 }
