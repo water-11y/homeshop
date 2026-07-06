@@ -252,6 +252,16 @@ p {
   color: #263446;
 }
 
+.button.kakao-consult {
+  border-color: #f0d200;
+  background: #fee500;
+  color: #191600;
+}
+
+.button.kakao-consult:hover {
+  filter: brightness(0.97);
+}
+
 .button.compact {
   width: 100%;
   min-height: 40px;
