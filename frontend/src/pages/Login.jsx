@@ -1,11 +1,14 @@
-import { KeyRound, LogIn, Search, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { Download, KeyRound, LogIn, Search, UserRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const emptyFindForm = { name: '', email: '' };
 const emptyResetForm = { name: '', email: '', username: '' };
+
+const isStandaloneApp = () =>
+  window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
 export default function Login() {
   const { login } = useAuth();
@@ -18,8 +21,33 @@ export default function Login() {
   const [resetResult, setResetResult] = useState(null);
   const [message, setMessage] = useState('');
   const [panelMessage, setPanelMessage] = useState('');
+  const [installMessage, setInstallMessage] = useState('');
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(() => isStandaloneApp());
   const [submitting, setSubmitting] = useState(false);
   const [panelSubmitting, setPanelSubmitting] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+      setInstallMessage('');
+    };
+
+    const handleAppInstalled = () => {
+      setInstallPrompt(null);
+      setIsAppInstalled(true);
+      setInstallMessage('앱 설치가 완료되었습니다.');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -51,6 +79,28 @@ export default function Login() {
   const goBackToLogin = () => {
     setActivePanel('');
     setPanelMessage('');
+  };
+
+  const handleInstallClick = async () => {
+    setInstallMessage('');
+
+    if (isAppInstalled) {
+      setInstallMessage('이미 앱으로 설치되어 있습니다.');
+      return;
+    }
+
+    if (!installPrompt) {
+      setInstallMessage('현재 브라우저에서는 메뉴에서 홈 화면에 추가를 선택해 설치할 수 있습니다.');
+      return;
+    }
+
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    setInstallPrompt(null);
+
+    if (choice.outcome === 'accepted') {
+      setInstallMessage('앱 설치를 시작했습니다.');
+    }
   };
 
   const handleFindUsername = async (event) => {
@@ -119,6 +169,16 @@ export default function Login() {
             <LogIn size={18} aria-hidden="true" />
             {submitting ? '확인 중...' : '로그인'}
           </button>
+          <button
+            className="button subtle full pwa-install-button"
+            disabled={isAppInstalled}
+            type="button"
+            onClick={handleInstallClick}
+          >
+            <Download size={18} aria-hidden="true" />
+            {isAppInstalled ? '앱 설치됨' : '앱 다운로드'}
+          </button>
+          {installMessage && <p className="app-install-note">{installMessage}</p>}
         </form>
 
         <div className="auth-helper-actions">
