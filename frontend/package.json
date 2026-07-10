@@ -6,9 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:android": "vite build --mode production && cap sync android",
+    "open:android": "cap open android",
+    "sync:android": "cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "@vitejs/plugin-react": "^4.3.4",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
@@ -16,5 +22,7 @@
     "react-router-dom": "^6.28.1",
     "vite": "^6.0.7"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "vite-plugin-pwa": "^1.3.0"
+  }
 }
